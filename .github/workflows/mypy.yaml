@@ -1,0 +1,33 @@
+name: Run mypy
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install
+        run: pip install mypy types-setuptools
+
+      - name: Install packages for consistent mypy usage
+        run: pip install GitPython
+
+      - name: Fake a version (the value is not relevant).
+        run: |
+          echo "__all__ = ['__version__']" > python/lsst_versions/__version__.py
+          echo "__version__ = '0.0.1'" >> python/lsst_versions/__version__.py
+
+      - name: Run mypy
+        run: mypy python
