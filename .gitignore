@@ -1,4 +1,6 @@
-python/lsst_versions/_version.py
+python/lsst_versions/__version__.py
+doc/_build/
+doc/py-api/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
