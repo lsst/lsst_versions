@@ -17,7 +17,13 @@ __all__ = ["find_dev_lsst_version", "infer_version_for_setuptools"]
 
 import logging
 import os
-from typing import TYPE_CHECKING, Any, Dict, Tuple
+import warnings
+from typing import TYPE_CHECKING, Dict
+
+try:
+    import tomli
+except ImportError:
+    tomli = None  # type: ignore
 
 try:
     import git
@@ -29,37 +35,6 @@ if TYPE_CHECKING:
 
 
 log = logging.getLogger(__name__)
-
-
-def _find_weekly_parent(
-    counter: int, commit: git.objects.commit.Commit, weeklies: Dict[str, str]
-) -> Tuple[str, int]:
-    """Find the weekly closest to this parent.
-
-    Parameters
-    ----------
-    counter : `int`
-        A counter indicating how many ancestors have been tried when
-        looking for a weekly.
-    commit : `git.objects.commit.Commit`
-        The commit to check.
-    weeklies : `Dict[str, str]`
-        A mapping of SHA1 to weekly tag name.
-
-    Returns
-    -------
-    weekly : `str`
-        The closest ancestor weekly to the given commit.
-    counter : `int`
-        The number of ancestor commits from the original commit to the weekly.
-    """
-    if commit.hexsha in weeklies:
-        return weeklies[commit.hexsha], counter
-    if not commit.parents:
-        # No weekly ancestor found.
-        return "", counter
-    # Try the first parent. Assume weeklies are only on merge commits.
-    return _find_weekly_parent(counter + 1, commit.parents[0], weeklies)
 
 
 def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
@@ -98,8 +73,8 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
     #. Determine the highest branch/tag ``vNN`` that does not have this
        commit as an ancestor.
     #. The closest ``w.YYYY.WW`` tag.
-    #. The number of commits from this commit to the closest weekly tag, ``n``.
-    #. Creating a new version of ``(NN+1).0.0aYYYYWWNN``
+    #. The number of commits from this commit to the closest weekly tag, ``c``.
+    #. Creating a new version of ``(NN+1).0.0aYYYYWWCC``
 
     """
     if git is None:
@@ -131,18 +106,14 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
             # commit. Retain the newest weekly. Some weekly tags did not
             # zero pad the week so must be normalized before comparison.
             if len(tag_name) == 8:
-                y, w = tuple(int(i) for i in tag_name.split(".")[1:])
-                tag_name = f"w.{y}.{w:02d}"
+                tag_name = f"{tag_name[:7]}0{tag_name[-1]}"
 
             # Store the weeklies associated with the object they are tagging
             # but only if this weekly is more recent than the one that may
             # already be stored.
             hexsha = weekly.object.hexsha
-            # print(f"Checking {tag_name} [{hexsha}]")
-            previous = None
             if (previous := weeklies.get(hexsha, None)) and previous > tag_name:
                 continue
-            # print(f"Storing {hexsha} for tag {tag_name}")
             weeklies[hexsha] = tag_name
 
     commit = repo.commit(version_commit)
@@ -162,12 +133,25 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
             break
 
     if relevant_release == 0:
-        log.warning("Could not find release tag in repo '%s', using 0.", repo_dir)
+        warnings.warn(f"Could not find release tag in repo '{repo_dir}', using 0.")
 
     # Look through the parents until we find a weekly commit.
     # The counter can report confusing results if this is being used for
-    # an unmerged development branch.
-    weekly_name, counter = _find_weekly_parent(0, commit, weeklies)
+    # an unmerged development branch (and on GitHub a pull request will
+    # include an extra commit because it merges the branch for testing).
+    counter = 0
+    weekly_name = ""
+    while commit:
+        if (hexsha := commit.hexsha) in weeklies:
+            weekly_name = weeklies[hexsha]
+            break
+        parents = commit.parents
+        if parents:
+            commit = parents[0]
+        else:
+            break
+        counter += 1
+
     if not weekly_name:
         # No weekly was found. This must be a very early commit.
         year, week = "0", "0"
@@ -184,18 +168,11 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
     return dev_version
 
 
-def _load_toml(content: str) -> Dict[str, Any]:
-    """Parse the TOML contents using deferred import."""
-    import tomli
-
-    return tomli.loads(content)
-
-
 def _write_version(version: str, version_path: str) -> None:
     """Write the version information to the specified file."""
     with open(version_path, "w") as fh:
         print(
-            f"""__all__ = ("__version__",)
+            f"""__all__ = ["__version__"]
 __version__ = "{version}"
 """,
             file=fh,
@@ -206,7 +183,7 @@ __version__ = "{version}"
 def infer_version_for_setuptools(dist: setuptools.Distribution) -> None:
     """Infer the version and write to the configuration location.
 
-    This function should be registered as a
+    This function should have been registered as a
     ``setuptools.finalize_distribution_options`` entry point.
 
     Parameters
@@ -226,8 +203,14 @@ def infer_version_for_setuptools(dist: setuptools.Distribution) -> None:
     if not os.path.isfile("pyproject.toml"):
         return
 
+    if tomli is None:
+        warnings.warn(  # type: ignore
+            "The tomli package is not installed. " "Unable to extract version file location."
+        )
+        return
+
     with open("pyproject.toml") as fh:
-        parsed = _load_toml(fh.read())
+        parsed = tomli.loads(fh.read())
 
     try:
         tool = parsed["tool"]["lsst_versions"]
@@ -237,6 +220,7 @@ def infer_version_for_setuptools(dist: setuptools.Distribution) -> None:
 
     write_to = tool.get("write_to")
     if not write_to:
+        warnings.warn("lsst_versions package enabled but no write_to setting found in pyproject.toml.")
         return
 
     # Find the version of HEAD and current directory.

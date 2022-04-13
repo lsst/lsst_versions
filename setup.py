@@ -15,7 +15,9 @@
 # The setuptools entry point can not be used to derive this package
 # version so it needs to be written here.
 import os
+import re
 import sys
+import warnings
 
 from setuptools import setup
 
@@ -23,7 +25,7 @@ from setuptools import setup
 def _write_version(version: str, path: str) -> None:
     with open(path, "w") as fh:
         print(
-            f"""__all__ = ("__version__",)
+            f"""__all__ = ["__version__"]
 __version__ = "{version}"
 """,
             file=fh,
@@ -36,7 +38,7 @@ def scm_version():
     src = os.path.join(here, "python")
     sys.path.insert(0, src)
 
-    version_path = os.path.join(here, "python/lsst_versions/__version__.py")
+    version_path = os.path.join(here, "python", "lsst_versions", "__version__.py")
 
     # To allow import to work, write a stub version file.
     default_version = "0.1.0"
@@ -50,18 +52,22 @@ def scm_version():
 
         version = find_dev_lsst_version(here, "HEAD")
     except Exception as e:
-        print(f"FAIL: {e}")
+        warnings.warn(f"Failed to determine package version: {e}")
         version = None
 
     if version is None:
-        # Look for an existing version file and read it if present.
-        if os.path.exists(version_path):
-            with open(version_path) as fh:
-                content = fh.read()
-            __version__ = default_version
-            exec(content)
-            version = __version__
+        # Look for an existing version file and read it.
+        with open(version_path) as fh:
+            content = fh.read()
+
+        # Use regex to extract version rather than trying to execute
+        # the (possibly untrusted) version code directly. This file
+        # should match the form we write above (no other system should
+        # be writing it).
+        if match := re.search(r'__version__\s*=\s*"(.*)"', content):
+            version = match.group(1)
         else:
+            warnings.warn("Unable to determine version. Falling back to default value.")
             version = default_version
 
     _write_version(version, version_path)
