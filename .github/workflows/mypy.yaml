@@ -22,7 +22,7 @@ jobs:
         run: pip install mypy types-setuptools
 
       - name: Install packages for consistent mypy usage
-        run: pip install GitPython
+        run: pip install -r requirements.txt
 
       - name: Fake a version (the value is not relevant).
         run: |

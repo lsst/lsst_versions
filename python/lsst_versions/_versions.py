@@ -17,8 +17,11 @@ __all__ = ["find_dev_lsst_version", "infer_version_for_setuptools"]
 
 import logging
 import os
+import re
 import warnings
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, Optional
+
+from packaging.version import InvalidVersion, Version
 
 try:
     import tomli
@@ -76,27 +79,52 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
     #. The number of commits from this commit to the closest weekly tag, ``c``.
     #. Creating a new version of ``(NN+1).0.0aYYYYWWCC``
 
+    If a commit matches that of a formal release tag (either proper release
+    or release candidate) that version is used directly.
     """
     if git is None:
         raise RuntimeError("GitPython package not installed. Unable to determine version.")
 
     repo = git.Repo(repo_dir)
 
-    releases: Dict[int, git.objects.commit.Commit] = {}
+    releases: Dict[str, Version] = {}
+    major_releases: Dict[int, git.objects.commit.Commit] = {}
     weeklies: Dict[str, str] = {}
+
     for tagref in repo.tags:
         tag_name = str(tagref)
-        # v tags for release candidates only appear for v13 onwards.
-        # Ignore older releases.
-        if tag_name.startswith("v"):
+        # LSST repos have release versions as either x.y.z version
+        # strings of vx.y.z (with optional rc numbers).
+        # Extract major version numbers from these and also store them
+        # in case the requested commit is actually associated with
+        # a full release.
+        if matches_release := re.match(r"v?(\d+.*)", tag_name):
             release = tagref.tag
             if release is None:
                 continue
+
+            version_string = matches_release.group(1)
+            # Assume the version string is parseable as a modern
+            # version. Some packages have odd (old) tags like 2015_10.0
+            # or 6.2-hsc, so skip those as not being relevant.
+            try:
+                parsed = Version(version_string)
+            except InvalidVersion:
+                continue
+
+            hexsha = release.object.hexsha
+            if hexsha in releases:
+                # This commit already has a version number associated with
+                # it. Check if this current version is newer and if so
+                # replace it.
+                if parsed > releases[hexsha]:
+                    releases[hexsha] = parsed
+            else:
+                releases[hexsha] = parsed
+
             # Assume that only major releases matter when looking through
-            # the history.
-            major = tag_name[1:].split(".")[0]
-            if major:
-                releases[int(major)] = release.object
+            # the history for developer versions.
+            major_releases[int(parsed.major)] = release.object
         elif tag_name.startswith("w."):
             weekly = tagref.tag
             if weekly is None:
@@ -118,18 +146,17 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
 
     commit = repo.commit(version_commit)
 
+    # if this commit is actually a valid release, use that directly.
+    if (hexsha := commit.hexsha) in releases:
+        return str(releases[hexsha])
+
     # Scan through all the releases for the first that does not have this
     # commit as an ancestor.
     relevant_release = 0
-    for major_release in sorted(releases, reverse=True):
-        if not repo.is_ancestor(commit, releases[major_release]):
+    for major_release in sorted(major_releases, reverse=True):
+        major_commit = major_releases[major_release]
+        if not repo.is_ancestor(commit, major_commit):
             relevant_release = major_release
-            break
-        if commit == releases[major_release]:
-            # It may be the actual release that should not be a dev
-            # release at all, but for now we do not try to look for
-            # release (non-rc) tags to deal with this properly.
-            relevant_release = major_release - 1
             break
 
     if relevant_release == 0:
@@ -139,18 +166,16 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
     # The counter can report confusing results if this is being used for
     # an unmerged development branch (and on GitHub a pull request will
     # include an extra commit because it merges the branch for testing).
-    counter = 0
+    counter = -1
     weekly_name = ""
-    while commit:
-        if (hexsha := commit.hexsha) in weeklies:
+    optional_commit: Optional[git.objects.commit.Commit] = commit
+    while optional_commit:
+        counter += 1
+        if (hexsha := optional_commit.hexsha) in weeklies:
             weekly_name = weeklies[hexsha]
             break
-        parents = commit.parents
-        if parents:
-            commit = parents[0]
-        else:
-            break
-        counter += 1
+        parents = optional_commit.parents
+        optional_commit = parents[0] if parents else None
 
     if not weekly_name:
         # No weekly was found. This must be a very early commit.

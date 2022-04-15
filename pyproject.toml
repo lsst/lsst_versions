@@ -3,6 +3,7 @@ requires = [
     "setuptools",
     "tomli>1.0",
     "GitPython",
+    "packaging",
 ]
 build-backend = "setuptools.build_meta"
 
