@@ -41,7 +41,7 @@ def scm_version():
     version_path = os.path.join(here, "python", "lsst_versions", "__version__.py")
 
     # To allow import to work, write a stub version file.
-    default_version = "0.1.0"
+    default_version = "0.0.1"
     if not os.path.exists(version_path):
         _write_version(default_version, version_path)
 
@@ -52,7 +52,11 @@ def scm_version():
 
         version = find_dev_lsst_version(here, "HEAD")
     except Exception as e:
-        warnings.warn(f"Failed to determine package version: {e}")
+        # git exceptions sometimes have no error message.
+        msg = str(e)
+        if not msg:
+            msg = repr(e)
+        print(f"Failed to determine package version from Git: {msg}")
         version = None
 
     if version is None:
@@ -67,8 +71,10 @@ def scm_version():
         if match := re.search(r'__version__\s*=\s*"(.*)"', content):
             version = match.group(1)
         else:
-            warnings.warn("Unable to determine version. Falling back to default value.")
             version = default_version
+
+        if version == default_version:
+            warnings.warn("Unable to determine package version. Falling back to default value.")
 
     _write_version(version, version_path)
 
