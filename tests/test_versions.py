@@ -50,8 +50,8 @@ class VersionsTestCase(unittest.TestCase):
     def test_versions(self):
         """Determine versions of a test repository."""
         versions = (
-            ("86427e5", "1.0.0a00000000"),  # No parents
-            ("86b5d01", "1.0.0a00000001"),
+            ("86427e5", "1.0.0a0"),  # No parents
+            ("86b5d01", "1.0.0a1"),
             ("595e858", "1.0"),
             ("ea28756", "2.0.0a20220400"),
             ("af0c308", "2.0.0a20220100"),

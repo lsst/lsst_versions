@@ -186,6 +186,12 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
     # Python pre-release versions must can only have a single integer
     # after the "a".
     dev_version = f"{relevant_release + 1}.0.0a{int(year):04d}{int(week):02d}{counter:02d}"
+
+    # Convert the version to standard form (this can prevent warnings
+    # coming from setuptools later on). For example 1.0.0a07 is rewritten
+    # as 1.0.0a7.
+    dev_version = str(Version(dev_version))
+
     log.debug(
         "Using version %s for commit %s derived from weekly %s", dev_version, commit.hexsha, weekly_name
     )
