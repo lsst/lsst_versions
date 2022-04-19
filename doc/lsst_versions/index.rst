@@ -1,9 +1,9 @@
 .. py:currentmodule:: lsst_versions
 
-.. _lsst_versions:
+.. _lsst-versions:
 
 #############
-lsst_versions
+lsst-versions
 #############
 
 This package is used to calculate a version dynamically from a Git repository when it is being built by ``pip``.
