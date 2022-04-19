@@ -1,3 +1,8 @@
+python/lsst_versions/__version__.py
+doc/_build/
+doc/py-api/
+tests/repo
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
