@@ -93,15 +93,14 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
 
     for tagref in repo.tags:
         tag_name = str(tagref)
+        print(f"Testing relevance of tag {tag_name}")
         # LSST repos have release versions as either x.y.z version
         # strings of vx.y.z (with optional rc numbers).
         # Extract major version numbers from these and also store them
         # in case the requested commit is actually associated with
         # a full release.
         if matches_release := re.match(r"v?(\d+.*)", tag_name):
-            release = tagref.tag
-            if release is None:
-                continue
+            print(f"Tag {tag_name} matches a release.")
 
             version_string = matches_release.group(1)
             # Assume the version string is parseable as a modern
@@ -110,9 +109,19 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
             try:
                 parsed = Version(version_string)
             except InvalidVersion:
+                print(f"Version string rejected: {version_string}")
                 continue
 
-            hexsha = release.object.hexsha
+            # Get the relevant commit from the tag.
+            release = tagref.tag
+            if release is None:
+                # Assume a lightweight tag, so the commit is what
+                # we have to use.
+                release_commit = tagref.commit
+            else:
+                release_commit = release.object
+
+            hexsha = release_commit.hexsha
             if hexsha in releases:
                 # This commit already has a version number associated with
                 # it. Check if this current version is newer and if so
@@ -124,11 +133,15 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
 
             # Assume that only major releases matter when looking through
             # the history for developer versions.
-            major_releases[int(parsed.major)] = release.object
+            major_releases[int(parsed.major)] = release_commit
         elif tag_name.startswith("w."):
+            print(f"Tag {tag_name} matches a weekly")
             weekly = tagref.tag
             if weekly is None:
-                continue
+                # Lightweight tag.
+                weekly_commit = tagref.commit
+            else:
+                weekly_commit = weekly.object
 
             # There can be multiple weeklies associated with a single
             # commit. Retain the newest weekly. Some weekly tags did not
@@ -139,7 +152,7 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
             # Store the weeklies associated with the object they are tagging
             # but only if this weekly is more recent than the one that may
             # already be stored.
-            hexsha = weekly.object.hexsha
+            hexsha = weekly_commit.hexsha
             if (previous := weeklies.get(hexsha, None)) and previous > tag_name:
                 continue
             weeklies[hexsha] = tag_name
@@ -148,6 +161,7 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
 
     # if this commit is actually a valid release, use that directly.
     if (hexsha := commit.hexsha) in releases:
+        print(f"Requested commit {commit.hexsha} matches release {releases[hexsha]}")
         return str(releases[hexsha])
 
     # Scan through all the releases for the first that does not have this
