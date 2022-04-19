@@ -1,2 +1,0 @@
-Initial release of ``lsst_versions`` package.
-This package can be used as a ``setuptools`` entry point to determine the version of a package from the Git repository.
