@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     import setuptools
 
 
-log = logging.getLogger(__name__)
+_LOG = logging.getLogger(__name__)
 
 
 def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
@@ -93,14 +93,14 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
 
     for tagref in repo.tags:
         tag_name = str(tagref)
-        print(f"Testing relevance of tag {tag_name}")
+        _LOG.debug("Testing relevance of tag %s", tag_name)
         # LSST repos have release versions as either x.y.z version
         # strings of vx.y.z (with optional rc numbers).
         # Extract major version numbers from these and also store them
         # in case the requested commit is actually associated with
         # a full release.
         if matches_release := re.match(r"v?(\d+.*)", tag_name):
-            print(f"Tag {tag_name} matches a release.")
+            _LOG.info("Tag %s matches a release.", tag_name)
 
             version_string = matches_release.group(1)
             # Assume the version string is parseable as a modern
@@ -109,7 +109,7 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
             try:
                 parsed = Version(version_string)
             except InvalidVersion:
-                print(f"Version string rejected: {version_string}")
+                _LOG.info("Version string rejected: %s", version_string)
                 continue
 
             # Get the relevant commit from the tag.
@@ -135,7 +135,7 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
             # the history for developer versions.
             major_releases[int(parsed.major)] = release_commit
         elif tag_name.startswith("w."):
-            print(f"Tag {tag_name} matches a weekly")
+            _LOG.info("Tag %s matches a weekly", tag_name)
             weekly = tagref.tag
             if weekly is None:
                 # Lightweight tag.
@@ -161,7 +161,7 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
 
     # if this commit is actually a valid release, use that directly.
     if (hexsha := commit.hexsha) in releases:
-        print(f"Requested commit {commit.hexsha} matches release {releases[hexsha]}")
+        _LOG.info("Requested commit %s matches release %s.", commit.hexsha, releases[hexsha])
         return str(releases[hexsha])
 
     # Scan through all the releases for the first that does not have this
@@ -206,7 +206,7 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
     # as 1.0.0a7.
     dev_version = str(Version(dev_version))
 
-    log.debug(
+    _LOG.debug(
         "Using version %s for commit %s derived from weekly %s", dev_version, commit.hexsha, weekly_name
     )
 
