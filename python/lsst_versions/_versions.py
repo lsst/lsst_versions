@@ -19,7 +19,7 @@ import logging
 import os
 import re
 import warnings
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 from packaging.version import InvalidVersion, Version
 
@@ -225,6 +225,87 @@ __version__ = "{version}"
         )
 
 
+def _find_version_path(dir: str = ".") -> Optional[str]:
+    """Find the path to the python version file.
+
+    Uses the ``pyproject.toml`` file in the given directory.
+
+    Parameters
+    ----------
+    dir : `str`, optional
+        The directory to locate the ``pyproject.toml`` file.
+
+    Returns
+    -------
+    path : `str` or `None`
+        The path (including ``dir``) to the version file. Returns ``None``
+        if the path could not be determined.
+    """
+    path = os.path.join(dir, "pyproject.toml")
+    if not os.path.isfile(path):
+        warnings.warn(f"No pyproject.toml file found in {dir}.")
+        return None
+
+    if tomli is None:
+        warnings.warn(  # type: ignore
+            "The tomli package is not installed. " "Unable to extract version file location."
+        )
+        return None
+
+    with open(path) as fh:
+        parsed = tomli.loads(fh.read())
+
+    try:
+        tool = parsed["tool"]["lsst_versions"]
+    except KeyError:
+        # No valid tool entry so nothing to do.
+        warnings.warn(f"[tool.lsst_versions] entry not found in pyproject.toml at {path}")
+        return None
+
+    write_to = tool.get("write_to")
+    if not write_to:
+        warnings.warn("lsst_versions package enabled but no write_to setting found in pyproject.toml.")
+        return None
+
+    return os.path.join(dir, write_to)
+
+
+def _process_version_writing(dir: str = ".", write_version: bool = True) -> Tuple[str, bool]:
+    """Determine the version and, optionally, write it.
+
+    Parameters
+    ----------
+    dir : `str`
+        The directory to use to find a version.
+    write_version : `bool`
+        If `True`, an attempt will be made to write the version file.
+        This will fail if no valid ``pyproject.toml`` file can be found
+        in ``dir``.
+
+    Returns
+    -------
+    version : `str`
+        The version string.
+    written : `bool`
+        `True` if a version file was written.
+    """
+    # Find the version file in current working directory.
+    write_to: Optional[str] = None
+    written = False
+    if write_version:
+        write_to = _find_version_path(dir)
+        if write_to is None:
+            return "<unknown>", written
+
+    # Find the version of HEAD and current directory.
+    version = find_dev_lsst_version(dir, "HEAD")
+    if write_version and write_to:
+        _write_version(version, write_to)
+        written = True
+
+    return version, written
+
+
 def infer_version_for_setuptools(dist: setuptools.Distribution) -> None:
     """Infer the version and write to the configuration location.
 
@@ -245,31 +326,8 @@ def infer_version_for_setuptools(dist: setuptools.Distribution) -> None:
 
     Will do nothing if no TOML file can be found.
     """
-    if not os.path.isfile("pyproject.toml"):
+    version, written = _process_version_writing(".", True)
+    if not written:
         return
-
-    if tomli is None:
-        warnings.warn(  # type: ignore
-            "The tomli package is not installed. " "Unable to extract version file location."
-        )
-        return
-
-    with open("pyproject.toml") as fh:
-        parsed = tomli.loads(fh.read())
-
-    try:
-        tool = parsed["tool"]["lsst_versions"]
-    except KeyError:
-        # No valid tool entry so nothing to do.
-        return
-
-    write_to = tool.get("write_to")
-    if not write_to:
-        warnings.warn("lsst_versions package enabled but no write_to setting found in pyproject.toml.")
-        return
-
-    # Find the version of HEAD and current directory.
-    version = find_dev_lsst_version(".", "HEAD")
-    _write_version(version, write_to)
 
     dist.metadata.version = version
