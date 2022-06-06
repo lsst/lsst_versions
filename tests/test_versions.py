@@ -21,8 +21,11 @@ except ImportError:
 
 from lsst_versions import find_lsst_version
 
-# Also need an internal function to test the lsst-versions API.
-from lsst_versions._versions import _process_version_writing
+# Also need an internal function to test the lsst-versions command.
+from lsst_versions._cmd import _run_command as run_lsst_versions
+
+# And to check pyproject.toml parsing.
+from lsst_versions._versions import _find_version_path as find_version_path
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 GITDIR = os.path.join(TESTDIR, "repo")
@@ -86,22 +89,51 @@ class VersionsTestCase(unittest.TestCase):
     def test_version_writing(self):
         """Test that a version file can be written."""
 
-        version_path = os.path.join(GITDIR, "version_test.py")
+        version_file = "version_test.py"
+        version_path = os.path.join(GITDIR, version_file)
         try:
             os.remove(version_path)
         except FileNotFoundError:
             pass
 
-        version, written = _process_version_writing(GITDIR, False)
-        self.assertFalse(written)
+        # Look where there is no pyproject file.
+        with self.assertLogs("lsst_versions", level="INFO") as cm:
+            with self.assertWarns(UserWarning):
+                version = run_lsst_versions(TESTDIR, True)
+        self.assertEqual(version, "<unknown>")
+        self.assertIn("Unable to write version file.", cm.output[-1])
+
+        # Find a version but do not write.
+        version = run_lsst_versions(GITDIR, False)
         self.assertEqual(version, "4.0.0a20221037")
         self.assertFalse(os.path.exists(version_path))
 
         # Now write the file.
-        version, written = _process_version_writing(GITDIR, True)
-        self.assertEqual(os.path.normpath(written), os.path.normpath(version_path))
+        with self.assertLogs("lsst_versions", level="INFO") as cm:
+            version = run_lsst_versions(GITDIR, True)
+        self.assertEqual(len(cm.output), 3, cm.output)
+        self.assertRegex(cm.output[-1], f"Written version file to .*{version_file}$")
         self.assertEqual(version, "4.0.0a20221037")
         self.assertTrue(os.path.exists(version_path))
+
+    def test_pyproject_finding(self):
+        """Test that we can find failure modes in pyproject.toml."""
+        datadir = os.path.join(TESTDIR, "data")
+
+        with self.assertWarns(UserWarning) as cm:
+            path = find_version_path(os.path.join(datadir, "no-pyproject"))
+        self.assertIsNone(path)
+        self.assertIn("No pyproject.toml", str(cm.warning))
+
+        with self.assertWarns(UserWarning) as cm:
+            path = find_version_path(os.path.join(datadir, "pyproject"))
+        self.assertIsNone(path)
+        self.assertIn("entry not found", str(cm.warning))
+
+        with self.assertWarns(UserWarning) as cm:
+            path = find_version_path(os.path.join(datadir, "no-write-pyproject"))
+        self.assertIsNone(path)
+        self.assertIn("no write_to setting", str(cm.warning))
 
 
 if __name__ == "__main__":

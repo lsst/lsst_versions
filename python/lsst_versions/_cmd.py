@@ -54,16 +54,35 @@ def build_argparser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> None:
-    """Run ``lsst-versions`` command."""
-    args = build_argparser().parse_args()
+def _run_command(repo: str, write_version: bool) -> str:
+    """Run the main command implementation code.
 
-    logging.basicConfig(level=args.log_level)
+    Parameters
+    ----------
+    repo : `str`
+        Path to a git repository.
+    write_version : `bool`
+        Whether to write a version file or not.
 
-    version, written = _process_version_writing(args.repo, args.write_version)
-    if args.write_version:
+    Returns
+    -------
+    version : `str`
+        The version string.
+    """
+    version, written = _process_version_writing(repo, write_version)
+    if write_version:
         if written:
             _LOG.info("Written version file to %s", written)
         else:
             _LOG.warning("Unable to write version file.")
+    return version
+
+
+def main() -> None:
+    """Run entry point for ``lsst-versions`` command."""
+    args = build_argparser().parse_args()
+
+    logging.basicConfig(level=args.log_level)
+
+    version = _run_command(args.repo, args.write_version)
     print(version)
