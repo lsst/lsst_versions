@@ -270,7 +270,7 @@ def _find_version_path(dir: str = ".") -> Optional[str]:
     return os.path.join(dir, write_to)
 
 
-def _process_version_writing(dir: str = ".", write_version: bool = True) -> Tuple[str, bool]:
+def _process_version_writing(dir: str = ".", write_version: bool = True) -> Tuple[str, Optional[str]]:
     """Determine the version and, optionally, write it.
 
     Parameters
@@ -286,12 +286,13 @@ def _process_version_writing(dir: str = ".", write_version: bool = True) -> Tupl
     -------
     version : `str`
         The version string.
-    written : `bool`
-        `True` if a version file was written.
+    written : `str`, optional
+        Path to the file that was written, or `None` if no version file was
+        written.
     """
     # Find the version file in current working directory.
     write_to: Optional[str] = None
-    written = False
+    written = None
     if write_version:
         write_to = _find_version_path(dir)
         if write_to is None:
@@ -301,9 +302,8 @@ def _process_version_writing(dir: str = ".", write_version: bool = True) -> Tupl
     version = find_lsst_version(dir, "HEAD")
     if write_version and write_to:
         _write_version(version, write_to)
-        written = True
 
-    return version, written
+    return version, write_to
 
 
 def infer_version_for_setuptools(dist: setuptools.Distribution) -> None:

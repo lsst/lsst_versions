@@ -16,6 +16,8 @@ import logging
 
 from ._versions import _process_version_writing
 
+_LOG = logging.getLogger("lsst_versions")
+
 
 def build_argparser() -> argparse.ArgumentParser:
     """Construct an argument parser for ``lsst-versions`` command.
@@ -59,6 +61,9 @@ def main() -> None:
     logging.basicConfig(level=args.log_level)
 
     version, written = _process_version_writing(args.repo, args.write_version)
-    if args.write_version and not written:
-        print("Unable to write version file.")
+    if args.write_version:
+        if written:
+            _LOG.info("Written version file to %s", written)
+        else:
+            _LOG.warning("Unable to write version file.")
     print(version)
