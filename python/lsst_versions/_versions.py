@@ -13,7 +13,7 @@
 
 from __future__ import annotations
 
-__all__ = ["find_dev_lsst_version", "infer_version_for_setuptools"]
+__all__ = ["find_lsst_version", "infer_version_for_setuptools"]
 
 import logging
 import os
@@ -40,8 +40,8 @@ if TYPE_CHECKING:
 _LOG = logging.getLogger(__name__)
 
 
-def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
-    """Return the development version for the given LSST commit.
+def find_lsst_version(repo_dir: str, version_commit: str) -> str:
+    """Return the version for the given LSST commit.
 
     Parameters
     ----------
@@ -298,7 +298,7 @@ def _process_version_writing(dir: str = ".", write_version: bool = True) -> Tupl
             return "<unknown>", written
 
     # Find the version of HEAD and current directory.
-    version = find_dev_lsst_version(dir, "HEAD")
+    version = find_lsst_version(dir, "HEAD")
     if write_version and write_to:
         _write_version(version, write_to)
         written = True

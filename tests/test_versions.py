@@ -19,7 +19,7 @@ try:
 except ImportError:
     git = None
 
-from lsst_versions import find_dev_lsst_version
+from lsst_versions import find_lsst_version
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 GITDIR = os.path.join(TESTDIR, "repo")
