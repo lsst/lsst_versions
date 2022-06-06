@@ -174,7 +174,7 @@ def find_lsst_version(repo_dir: str, version_commit: str) -> str:
             break
 
     if relevant_release == 0:
-        warnings.warn(f"Could not find release tag in repo '{repo_dir}', using 0.")
+        warnings.warn(f"Could not find release tag as ancestor for {commit} in repo '{repo_dir}', using 0.")
 
     # Look through the parents until we find a weekly commit.
     # The counter can report confusing results if this is being used for

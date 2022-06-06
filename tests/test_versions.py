@@ -65,7 +65,13 @@ class VersionsTestCase(unittest.TestCase):
         )
 
         for tag, expected in versions:
-            version = find_dev_lsst_version(GITDIR, tag)
+            # Check that we get a warning when no release tag ancestor.
+            if expected.startswith("1.0.0a"):
+                with self.assertWarns(UserWarning) as cm:
+                    version = find_lsst_version(GITDIR, tag)
+                self.assertIn("Could not find release tag", str(cm.warning))
+            else:
+                version = find_lsst_version(GITDIR, tag)
             with self.subTest(tag=tag, expected=expected):
                 self.assertEqual(version, expected)
 
