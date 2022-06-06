@@ -21,6 +21,9 @@ except ImportError:
 
 from lsst_versions import find_lsst_version
 
+# Also need an internal function to test the lsst-versions API.
+from lsst_versions._versions import _process_version_writing
+
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 GITDIR = os.path.join(TESTDIR, "repo")
 TARFILE = os.path.join(TESTDIR, "test-repo.tgz")
@@ -35,6 +38,11 @@ def setup_module(module):
     if not os.path.exists(GITDIR):
         with tarfile.open(TARFILE, "r:gz") as tar:
             tar.extractall(path=TESTDIR)
+
+    # Ensure that the pyproject.toml file is in the test directory.
+    target = os.path.join(GITDIR, "pyproject.toml")
+    if not os.path.exists(target):
+        os.symlink(os.path.join(TESTDIR, "test_pyproject.toml"), target)
 
 
 @unittest.skipIf(git is None, "GitPython package is not installed.")
@@ -74,6 +82,26 @@ class VersionsTestCase(unittest.TestCase):
                 version = find_lsst_version(GITDIR, tag)
             with self.subTest(tag=tag, expected=expected):
                 self.assertEqual(version, expected)
+
+    def test_version_writing(self):
+        """Test that a version file can be written."""
+
+        version_path = os.path.join(GITDIR, "version_test.py")
+        try:
+            os.remove(version_path)
+        except FileNotFoundError:
+            pass
+
+        version, written = _process_version_writing(GITDIR, False)
+        self.assertFalse(written)
+        self.assertEqual(version, "4.0.0a20221037")
+        self.assertFalse(os.path.exists(version_path))
+
+        # Now write the file.
+        version, written = _process_version_writing(GITDIR, True)
+        self.assertEqual(os.path.normpath(written), os.path.normpath(version_path))
+        self.assertEqual(version, "4.0.0a20221037")
+        self.assertTrue(os.path.exists(version_path))
 
 
 if __name__ == "__main__":
