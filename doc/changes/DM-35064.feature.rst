@@ -1,2 +1,0 @@
-Added a new ``lsst-version`` command line that can be used to determine the version of a package.
-This command can also be used to create a version file in the package using the configuration found in a ``pyproject.toml`` file.
