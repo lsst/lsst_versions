@@ -33,6 +33,13 @@ Using lsst_versions
 
    configuring.rst
 
+Command-line
+============
+
+.. autoprogram:: lsst_versions._cmd:build_argparser()
+   :prog: lsst-version
+   :groups:
+
 Contributing
 ============
 

@@ -48,9 +48,9 @@ def scm_version():
     # Finding a version may well fail if there is no git repo
     # associated with this checkout.
     try:
-        from lsst_versions import find_dev_lsst_version
+        from lsst_versions import find_lsst_version
 
-        version = find_dev_lsst_version(here, "HEAD")
+        version = find_lsst_version(here, "HEAD")
     except Exception as e:
         # git exceptions sometimes have no error message.
         msg = str(e)

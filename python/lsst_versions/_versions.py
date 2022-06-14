@@ -13,13 +13,13 @@
 
 from __future__ import annotations
 
-__all__ = ["find_dev_lsst_version", "infer_version_for_setuptools"]
+__all__ = ["find_lsst_version", "infer_version_for_setuptools"]
 
 import logging
 import os
 import re
 import warnings
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 from packaging.version import InvalidVersion, Version
 
@@ -37,11 +37,11 @@ if TYPE_CHECKING:
     import setuptools
 
 
-log = logging.getLogger(__name__)
+_LOG = logging.getLogger("lsst_versions")
 
 
-def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
-    """Return the development version for the given LSST commit.
+def find_lsst_version(repo_dir: str, version_commit: str) -> str:
+    """Return the version for the given LSST commit.
 
     Parameters
     ----------
@@ -93,14 +93,14 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
 
     for tagref in repo.tags:
         tag_name = str(tagref)
-        print(f"Testing relevance of tag {tag_name}")
+        _LOG.debug("Testing relevance of tag %s", tag_name)
         # LSST repos have release versions as either x.y.z version
         # strings of vx.y.z (with optional rc numbers).
         # Extract major version numbers from these and also store them
         # in case the requested commit is actually associated with
         # a full release.
         if matches_release := re.match(r"v?(\d+.*)", tag_name):
-            print(f"Tag {tag_name} matches a release.")
+            _LOG.debug("Tag %s matches a release.", tag_name)
 
             version_string = matches_release.group(1)
             # Assume the version string is parseable as a modern
@@ -109,7 +109,7 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
             try:
                 parsed = Version(version_string)
             except InvalidVersion:
-                print(f"Version string rejected: {version_string}")
+                _LOG.info("Version string rejected: %s", version_string)
                 continue
 
             # Get the relevant commit from the tag.
@@ -135,7 +135,7 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
             # the history for developer versions.
             major_releases[int(parsed.major)] = release_commit
         elif tag_name.startswith("w."):
-            print(f"Tag {tag_name} matches a weekly")
+            _LOG.debug("Tag %s matches a weekly", tag_name)
             weekly = tagref.tag
             if weekly is None:
                 # Lightweight tag.
@@ -161,7 +161,7 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
 
     # if this commit is actually a valid release, use that directly.
     if (hexsha := commit.hexsha) in releases:
-        print(f"Requested commit {commit.hexsha} matches release {releases[hexsha]}")
+        _LOG.debug("Requested commit %s matches release %s.", commit.hexsha, releases[hexsha])
         return str(releases[hexsha])
 
     # Scan through all the releases for the first that does not have this
@@ -174,7 +174,7 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
             break
 
     if relevant_release == 0:
-        warnings.warn(f"Could not find release tag in repo '{repo_dir}', using 0.")
+        warnings.warn(f"Could not find release tag as ancestor for {commit} in repo '{repo_dir}', using 0.")
 
     # Look through the parents until we find a weekly commit.
     # The counter can report confusing results if this is being used for
@@ -206,7 +206,7 @@ def find_dev_lsst_version(repo_dir: str, version_commit: str) -> str:
     # as 1.0.0a7.
     dev_version = str(Version(dev_version))
 
-    log.debug(
+    _LOG.info(
         "Using version %s for commit %s derived from weekly %s", dev_version, commit.hexsha, weekly_name
     )
 
@@ -223,6 +223,87 @@ __version__ = "{version}"
             file=fh,
             end="",
         )
+
+
+def _find_version_path(dir: str = ".") -> Optional[str]:
+    """Find the path to the python version file.
+
+    Uses the ``pyproject.toml`` file in the given directory.
+
+    Parameters
+    ----------
+    dir : `str`, optional
+        The directory to locate the ``pyproject.toml`` file.
+
+    Returns
+    -------
+    path : `str` or `None`
+        The path (including ``dir``) to the version file. Returns ``None``
+        if the path could not be determined.
+    """
+    path = os.path.join(dir, "pyproject.toml")
+    if not os.path.isfile(path):
+        warnings.warn(f"No pyproject.toml file found in {dir}.")
+        return None
+
+    if tomli is None:
+        warnings.warn(  # type: ignore
+            "The tomli package is not installed. " "Unable to extract version file location."
+        )
+        return None
+
+    with open(path) as fh:
+        parsed = tomli.loads(fh.read())
+
+    try:
+        tool = parsed["tool"]["lsst_versions"]
+    except KeyError:
+        # No valid tool entry so nothing to do.
+        warnings.warn(f"[tool.lsst_versions] entry not found in pyproject.toml at {path}")
+        return None
+
+    write_to = tool.get("write_to")
+    if not write_to:
+        warnings.warn("lsst_versions package enabled but no write_to setting found in pyproject.toml.")
+        return None
+
+    return os.path.join(dir, write_to)
+
+
+def _process_version_writing(dir: str = ".", write_version: bool = True) -> Tuple[str, Optional[str]]:
+    """Determine the version and, optionally, write it.
+
+    Parameters
+    ----------
+    dir : `str`
+        The directory to use to find a version.
+    write_version : `bool`
+        If `True`, an attempt will be made to write the version file.
+        This will fail if no valid ``pyproject.toml`` file can be found
+        in ``dir``.
+
+    Returns
+    -------
+    version : `str`
+        The version string.
+    written : `str`, optional
+        Path to the file that was written, or `None` if no version file was
+        written.
+    """
+    # Find the version file in current working directory.
+    write_to: Optional[str] = None
+    written = None
+    if write_version:
+        write_to = _find_version_path(dir)
+        if write_to is None:
+            return "<unknown>", written
+
+    # Find the version of HEAD and current directory.
+    version = find_lsst_version(dir, "HEAD")
+    if write_version and write_to:
+        _write_version(version, write_to)
+
+    return version, write_to
 
 
 def infer_version_for_setuptools(dist: setuptools.Distribution) -> None:
@@ -245,31 +326,8 @@ def infer_version_for_setuptools(dist: setuptools.Distribution) -> None:
 
     Will do nothing if no TOML file can be found.
     """
-    if not os.path.isfile("pyproject.toml"):
+    version, written = _process_version_writing(".", True)
+    if not written:
         return
-
-    if tomli is None:
-        warnings.warn(  # type: ignore
-            "The tomli package is not installed. " "Unable to extract version file location."
-        )
-        return
-
-    with open("pyproject.toml") as fh:
-        parsed = tomli.loads(fh.read())
-
-    try:
-        tool = parsed["tool"]["lsst_versions"]
-    except KeyError:
-        # No valid tool entry so nothing to do.
-        return
-
-    write_to = tool.get("write_to")
-    if not write_to:
-        warnings.warn("lsst_versions package enabled but no write_to setting found in pyproject.toml.")
-        return
-
-    # Find the version of HEAD and current directory.
-    version = find_dev_lsst_version(".", "HEAD")
-    _write_version(version, write_to)
 
     dist.metadata.version = version

@@ -1,0 +1,2 @@
+[tool.lsst_versions]
+no_write_to = "version_test.py"
