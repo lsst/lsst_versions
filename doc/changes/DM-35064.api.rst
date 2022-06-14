@@ -1,0 +1,1 @@
+Renamed the ``find_dev_lsst_version`` function to ``find_lsst_version`` to reflect the fact that it does more than finding developer versions.

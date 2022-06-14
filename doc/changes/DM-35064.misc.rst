@@ -1,0 +1,2 @@
+* Replaced some debug prints with logging.
+* Significantly improved the test coverage.
