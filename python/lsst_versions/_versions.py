@@ -40,14 +40,14 @@ if TYPE_CHECKING:
 _LOG = logging.getLogger("lsst_versions")
 
 
-def find_lsst_version(repo_dir: str, version_commit: str) -> str:
+def find_lsst_version(repo_dir: str = ".", version_commit: str = "HEAD") -> str:
     """Return the version for the given LSST commit.
 
     Parameters
     ----------
-    repo_dir : `str`
+    repo_dir : `str`, optional
         Path to the relevant Git repository.
-    version_commit : `str`
+    version_commit : `str`, optional
         Commit for which the version is to be calculated.
 
     Returns
