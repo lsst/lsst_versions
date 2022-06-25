@@ -24,8 +24,9 @@ from lsst_versions import find_lsst_version
 # Also need an internal function to test the lsst-versions command.
 from lsst_versions._cmd import _run_command as run_lsst_versions
 
-# And to check pyproject.toml parsing.
+# And to check pyproject.toml parsing and PKG-INFO parsing.
 from lsst_versions._versions import _find_version_path as find_version_path
+from lsst_versions._versions import _process_version_writing as process_version_writing
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 GITDIR = os.path.join(TESTDIR, "repo")
@@ -134,6 +135,34 @@ class VersionsTestCase(unittest.TestCase):
             path = find_version_path(os.path.join(datadir, "no-write-pyproject"))
         self.assertIsNone(path)
         self.assertIn("no write_to setting", str(cm.warning))
+
+    def test_fallback_version(self):
+        """Test that fallback to PKG-INFO works correctly."""
+        datadir = os.path.join(TESTDIR, "data")
+
+        # A directory that does have an egg-info but no git and no fallback.
+        with self.assertRaises(Exception):
+            process_version_writing(datadir, write_version=False, fallback=False)
+
+        # Directory with an egg-info.
+        version, _ = process_version_writing(datadir, write_version=False, fallback=True)
+        self.assertEqual(version, "1.1.0")
+
+        # Directory with a PKG-INFO.
+        version, _ = process_version_writing(
+            os.path.join(datadir, "something.egg-info"), write_version=False, fallback=True
+        )
+        self.assertEqual(version, "1.1.0")
+
+        # Directory with a python directory that has an egg-info in it.
+        version, _ = process_version_writing(
+            os.path.join(datadir, "pyproject"), write_version=False, fallback=True
+        )
+        self.assertEqual(version, "3.4.0a32")
+
+        # Fallback allowed but no PKG-INFO.
+        with self.assertRaises(RuntimeError):
+            process_version_writing(os.path.join(datadir, "no-pyproject"), write_version=False, fallback=True)
 
 
 if __name__ == "__main__":
