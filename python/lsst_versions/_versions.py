@@ -270,7 +270,93 @@ def _find_version_path(dir: str = ".") -> Optional[str]:
     return os.path.join(dir, write_to)
 
 
-def _process_version_writing(dir: str = ".", write_version: bool = True) -> Tuple[str, Optional[str]]:
+def _find_version_from_pkginfo(dir: str = ".") -> Optional[str]:
+    """Find version information from PKG-INFO file.
+
+    Parameters
+    ----------
+    dir : `str`
+        The directory of the distribution.
+
+    Returns
+    -------
+    version : `str` or `None`
+        The version string. `None` if no version can be found.
+    """
+    pkginfo = os.path.join(dir, "PKG-INFO")
+    if not os.path.exists(pkginfo):
+        return None
+
+    content: dict[str, str] = {}
+    with open(pkginfo) as fh:
+        for line in fh:
+            if ": " in line:
+                line = line.strip()
+                k, v = line.split(": ", 1)
+                content[k] = v
+    return content.get("Version", None)
+
+
+def _find_version_from_egg_info(dir: str = ".") -> Optional[str]:
+    """Find version information from egg-info directory.
+
+    This is a fallback situation when no Git repository is available.
+
+    Parameters
+    ----------
+    dir : `str`
+        The directory of the distribution.
+
+    Returns
+    -------
+    version : `str` or `None`
+        The version string. `None` if no version can be found.
+
+    Notes
+    -----
+    Looks for an egg-info directory in the current directory and also in the
+    standard ``python`` directory.
+    Does not look at pyproject.toml for tool.setuptools.packages.find.where.
+    """
+    for subdir in ("python", ""):
+        candidate = os.path.join(dir, subdir)
+        if not os.path.isdir(candidate):
+            continue
+        for file in os.listdir(candidate):
+            if file.endswith(".egg-info"):
+                version = _find_version_from_pkginfo(os.path.join(candidate, file))
+                if version is not None:
+                    return version
+                break
+
+    return None
+
+
+def _find_version_from_metadata(dir: str = ".") -> Optional[str]:
+    """Find version information from package metadata.
+
+    This is a fallback situation when no Git repository is available.
+
+    Parameters
+    ----------
+    dir : `str`
+        The directory of the distribution.
+
+    Returns
+    -------
+    version : `str` or `None`
+        The version string. `None` if no version can be found.
+    """
+    version = _find_version_from_pkginfo(dir)
+    if version is not None:
+        return version
+    version = _find_version_from_egg_info(dir)
+    return version
+
+
+def _process_version_writing(
+    dir: str = ".", write_version: bool = True, fallback: bool = False
+) -> Tuple[str, Optional[str]]:
     """Determine the version and, optionally, write it.
 
     Parameters
@@ -281,6 +367,10 @@ def _process_version_writing(dir: str = ".", write_version: bool = True) -> Tupl
         If `True`, an attempt will be made to write the version file.
         This will fail if no valid ``pyproject.toml`` file can be found
         in ``dir``.
+    fallback : `bool`, optional
+        If `True` and no Git version can be found, an attempt will be made
+        to find the version from package metadata. This can be important
+        for source distributions that are no longer part of a Git repository.
 
     Returns
     -------
@@ -299,7 +389,17 @@ def _process_version_writing(dir: str = ".", write_version: bool = True) -> Tupl
             return "<unknown>", written
 
     # Find the version of HEAD and current directory.
-    version = find_lsst_version(dir, "HEAD")
+    version: Optional[str] = None
+    try:
+        version = find_lsst_version(dir, "HEAD")
+    except Exception:
+        if not fallback:
+            raise
+    if version is None:
+        version = _find_version_from_metadata(dir)
+        if version is None:
+            raise RuntimeError(f"Unable to find a version from Git or metadata within directory {dir}")
+
     if write_version and write_to:
         _write_version(version, write_to)
 
@@ -325,8 +425,11 @@ def infer_version_for_setuptools(dist: setuptools.Distribution) -> None:
     be used to specify where the version information should be written.
 
     Will do nothing if no TOML file can be found.
+
+    If Git can not be used, an attempt will be made to read a PKG-INFO
+    file. This allows source-only distributions to be built.
     """
-    version, written = _process_version_writing(".", True)
+    version, written = _process_version_writing(".", True, fallback=True)
     if not written:
         return
 
