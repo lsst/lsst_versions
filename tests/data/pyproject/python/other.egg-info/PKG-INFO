@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: lsst-versions
+Version: 3.4.0a32
+Summary: Calculate package versions following LSST code conventions.
+Home-page: https://github.com/lsst/lsst_versions
+Author: Rubin Observatory Data Management
+Author-email: dm-admin@lists.lsst.org
+Project-URL: Source code, https://github.com/lsst/lsst_versions
+Project-URL: Issue tracker, https://github.com/lsst/lsst_versions/issues
+Keywords: lsst
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Version Control
+Classifier: Topic :: System :: Software Distribution
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+Provides-Extra: dev
+License-File: LICENSE
