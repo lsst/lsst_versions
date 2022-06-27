@@ -1,3 +1,13 @@
+lsst-versions 1.2.0 2022-06-27
+==============================
+
+New Features
+------------
+
+- Now falls back to looking at ``PKG-INFO`` file if no git version can be determined.
+  This allows a source distribution to be built.
+- The ``find_lsst_version`` API can now run without any parameters.
+
 lsst-versions 1.1.0 2022-06-14
 ==============================
 
