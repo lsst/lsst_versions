@@ -13,7 +13,7 @@
 
 from __future__ import annotations
 
-__all__ = ["find_lsst_version", "infer_version_for_setuptools"]
+__all__ = ["find_lsst_version", "get_lsst_version", "infer_version_for_setuptools"]
 
 import logging
 import os
@@ -35,7 +35,6 @@ except ImportError:
 
 if TYPE_CHECKING:
     import setuptools
-
 
 _LOG = logging.getLogger("lsst_versions")
 
@@ -225,14 +224,14 @@ __version__ = "{version}"
         )
 
 
-def _find_version_path(dir: str = ".") -> Optional[str]:
+def _find_version_path(dirname: str = ".") -> Optional[str]:
     """Find the path to the python version file.
 
     Uses the ``pyproject.toml`` file in the given directory.
 
     Parameters
     ----------
-    dir : `str`, optional
+    dirname : `str`, optional
         The directory to locate the ``pyproject.toml`` file.
 
     Returns
@@ -241,9 +240,9 @@ def _find_version_path(dir: str = ".") -> Optional[str]:
         The path (including ``dir``) to the version file. Returns ``None``
         if the path could not be determined.
     """
-    path = os.path.join(dir, "pyproject.toml")
+    path = os.path.join(dirname, "pyproject.toml")
     if not os.path.isfile(path):
-        warnings.warn(f"No pyproject.toml file found in {dir}.")
+        warnings.warn(f"No pyproject.toml file found in {dirname}.")
         return None
 
     if tomli is None:
@@ -267,15 +266,15 @@ def _find_version_path(dir: str = ".") -> Optional[str]:
         warnings.warn("lsst_versions package enabled but no write_to setting found in pyproject.toml.")
         return None
 
-    return os.path.join(dir, write_to)
+    return os.path.join(dirname, write_to)
 
 
-def _find_version_from_pkginfo(dir: str = ".") -> Optional[str]:
+def _find_version_from_pkginfo(dirname: str = ".") -> Optional[str]:
     """Find version information from PKG-INFO file.
 
     Parameters
     ----------
-    dir : `str`
+    dirname : `str`
         The directory of the distribution.
 
     Returns
@@ -283,7 +282,7 @@ def _find_version_from_pkginfo(dir: str = ".") -> Optional[str]:
     version : `str` or `None`
         The version string. `None` if no version can be found.
     """
-    pkginfo = os.path.join(dir, "PKG-INFO")
+    pkginfo = os.path.join(dirname, "PKG-INFO")
     if not os.path.exists(pkginfo):
         return None
 
@@ -297,14 +296,14 @@ def _find_version_from_pkginfo(dir: str = ".") -> Optional[str]:
     return content.get("Version", None)
 
 
-def _find_version_from_egg_info(dir: str = ".") -> Optional[str]:
+def _find_version_from_egg_info(dirname: str = ".") -> Optional[str]:
     """Find version information from egg-info directory.
 
     This is a fallback situation when no Git repository is available.
 
     Parameters
     ----------
-    dir : `str`
+    dirname : `str`
         The directory of the distribution.
 
     Returns
@@ -319,7 +318,7 @@ def _find_version_from_egg_info(dir: str = ".") -> Optional[str]:
     Does not look at pyproject.toml for tool.setuptools.packages.find.where.
     """
     for subdir in ("python", ""):
-        candidate = os.path.join(dir, subdir)
+        candidate = os.path.join(dirname, subdir)
         if not os.path.isdir(candidate):
             continue
         for file in os.listdir(candidate):
@@ -332,14 +331,14 @@ def _find_version_from_egg_info(dir: str = ".") -> Optional[str]:
     return None
 
 
-def _find_version_from_metadata(dir: str = ".") -> Optional[str]:
+def _find_version_from_metadata(dirname: str = ".") -> Optional[str]:
     """Find version information from package metadata.
 
     This is a fallback situation when no Git repository is available.
 
     Parameters
     ----------
-    dir : `str`
+    dirname : `str`
         The directory of the distribution.
 
     Returns
@@ -347,21 +346,21 @@ def _find_version_from_metadata(dir: str = ".") -> Optional[str]:
     version : `str` or `None`
         The version string. `None` if no version can be found.
     """
-    version = _find_version_from_pkginfo(dir)
+    version = _find_version_from_pkginfo(dirname)
     if version is not None:
         return version
-    version = _find_version_from_egg_info(dir)
+    version = _find_version_from_egg_info(dirname)
     return version
 
 
 def _process_version_writing(
-    dir: str = ".", write_version: bool = True, fallback: bool = False
+    dirname: str = ".", write_version: bool = True, fallback: bool = False
 ) -> Tuple[str, Optional[str]]:
     """Determine the version and, optionally, write it.
 
     Parameters
     ----------
-    dir : `str`
+    dirname : `str`
         The directory to use to find a version.
     write_version : `bool`
         If `True`, an attempt will be made to write the version file.
@@ -384,26 +383,49 @@ def _process_version_writing(
     write_to: Optional[str] = None
     written = None
     if write_version:
-        write_to = _find_version_path(dir)
+        write_to = _find_version_path(dirname)
         if write_to is None:
             return "<unknown>", written
 
     # Find the version of HEAD and current directory.
-    version: Optional[str] = None
-    try:
-        version = find_lsst_version(dir, "HEAD")
-    except Exception:
-        if not fallback:
-            raise
-    if version is None:
-        version = _find_version_from_metadata(dir)
-        if version is None:
-            raise RuntimeError(f"Unable to find a version from Git or metadata within directory {dir}")
+    version = get_lsst_version(dirname, fallback)
 
     if write_version and write_to:
         _write_version(version, write_to)
 
     return version, write_to
+
+
+def get_lsst_version(dirname: str = ".", fallback: bool = True) -> str:
+    """Determine the version and return as string
+
+    Parameters
+    ----------
+    dirname : `str`, optional
+        The directory to use to find a version.
+    fallback : `bool`, optional
+        If `True` and no Git version can be found, an attempt will be made
+        to find the version from package metadata. This can be important
+        for source distributions that are no longer part of a Git repository.
+
+    Returns
+    -------
+    version : `str`
+        The version string.
+
+    This function returns the HEAD version of a direcotry
+    """
+    version: Optional[str] = None
+    try:
+        version = find_lsst_version(dirname, "HEAD")
+    except Exception:
+        if not fallback:
+            raise
+    if version is None:
+        version = _find_version_from_metadata(dirname)
+        if version is None:
+            raise RuntimeError(f"Unable to find a version from Git or metadata within directory {dirname}")
+    return version
 
 
 def infer_version_for_setuptools(dist: setuptools.Distribution) -> None:

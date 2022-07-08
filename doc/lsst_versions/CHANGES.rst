@@ -1,3 +1,12 @@
+lsst-versions 1.3.0 2022-07-10
+==============================
+
+API Changes
+-----------
+
+- Added a new function ``get_lsst_version``.
+  This allows to get a version string of a GitHub or metadata directory.
+
 lsst-versions 1.2.0 2022-06-27
 ==============================
 
