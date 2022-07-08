@@ -13,7 +13,7 @@
 
 from __future__ import annotations
 
-__all__ = ["find_lsst_version", "infer_version_for_setuptools"]
+__all__ = ["get_lsst_version", "find_lsst_version", "infer_version_for_setuptools"]
 
 import logging
 import os
@@ -405,6 +405,31 @@ def _process_version_writing(
 
     return version, write_to
 
+def get_lsst_version() -> str:
+    """Determine the version and return as string
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    version : `str`
+        The version string.
+    """
+
+    # Find the version of HEAD and current directory.
+    dirname = '.'
+    version: Optional[str] = None
+    try:
+        version = find_lsst_version(dirname, "HEAD")
+    except Exception:
+        pass
+    if version is None:
+        version = _find_version_from_metadata(dirname)
+        if version is None:
+            raise RuntimeError(f"Unable to find a version from Git or metadata within directory {dirname}")
+    return version
 
 def infer_version_for_setuptools(dist: setuptools.Distribution) -> None:
     """Infer the version and write to the configuration location.
