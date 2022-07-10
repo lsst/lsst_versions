@@ -19,7 +19,7 @@ try:
 except ImportError:
     git = None
 
-from lsst_versions import find_lsst_version
+from lsst_versions import find_lsst_version, get_lsst_version
 
 # Also need an internal function to test the lsst-versions command.
 from lsst_versions._cmd import _run_command as run_lsst_versions
@@ -58,6 +58,21 @@ class VersionsTestCase(unittest.TestCase):
             git.Repo(GITDIR)
         except Exception:
             raise unittest.SkipTest("Git repository for this package is not accessible.")
+
+    def test_get_lsst_version(self):
+        # test get_lsst_version which returns version for the current directory
+        datadir = os.path.join(TESTDIR, "data")
+        # test for directory with package info
+        dirname = os.path.join(datadir, "something.egg-info")
+        version = get_lsst_version(dirname)
+        self.assertEqual(version, "1.1.0")
+        # test for git repo
+        version = get_lsst_version(GITDIR)
+        self.assertEqual(version, "4.0.0a20221037")
+        # test for pyproject
+        dirname = os.path.join(datadir, "pyproject")
+        version = get_lsst_version(dirname)
+        self.assertEqual(version, "3.4.0a32")
 
     def test_versions(self):
         """Determine versions of a test repository."""
