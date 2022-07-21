@@ -19,8 +19,10 @@ from that produced by EUPS's ``pkgautoversion``.
 It avoids the need to hard-code and continually update a version string.
 It assumes the use of LSST DM release and tagging practices.
 """
-
-from .__version__ import *
+try:
+    from .__version__ import *
+except:
+    pass
 
 # Importing __all__ ensures that the docstrings for the public APis
 # in _versions.py are lifted into the main namespace.
