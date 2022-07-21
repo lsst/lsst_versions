@@ -1,3 +1,6 @@
+[project]
+name = "lsst-versions"
+
 [build-system]
 requires = [
     "setuptools",
