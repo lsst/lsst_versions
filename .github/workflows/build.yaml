@@ -21,13 +21,15 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
-          python-version: 3.8
+          python-version: 3.9
           cache: "pip"
           cache-dependency-path: "setup.cfg"
 
       # We have two cores so we can speed up the testing with xdist
       - name: Install pytest packages
-        run: pip install pytest pytest-flake8 pytest-openfiles pytest-cov
+        run: | 
+          pip install pytest pytest-flake8 pytest-openfiles pytest-cov
+          pip install --upgrade pip
 
       - name: Install prereqs for setuptools
         run: pip install wheel
