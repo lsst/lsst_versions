@@ -91,6 +91,9 @@ version = { attr = "lsst_versions.get_lsst_version" }
         name = "An API Removal or Deprecation"
         showcontent = true
 
+[tool.lsst_versions]
+write_to = "python/lsst_versions/__version__.py"
+
 [tool.black]
 line-length = 110
 target-version = ["py38"]
