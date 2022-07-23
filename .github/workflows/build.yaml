@@ -29,7 +29,7 @@ jobs:
       - name: Install pytest packages
         run: | 
           pip install pytest pytest-flake8 pytest-openfiles pytest-cov
-          pip install --upgrade pip
+          pip install --upgrade pip setuptools
 
       - name: Install prereqs for setuptools
         run: pip install wheel
