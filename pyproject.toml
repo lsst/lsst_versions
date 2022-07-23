@@ -1,14 +1,57 @@
-[project]
-name = "lsst-versions"
-
 [build-system]
 requires = [
+    "setuptools",
+    "packaging",
+    "tomli>1.0.0",
+    "GitPython >= 3.1",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lsst-versions"
+description = "Calculate package versions following LSST code conventions."
+readme = "README.md"
+authors = [
+    {name="Rubin Observatory Data Management", email="dm-admin@lists.lsst.org"},
+]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Version Control",
+    "Topic :: System :: Software Distribution",
+]
+keywords = ["lsst"]
+dependencies = [
     "setuptools",
     "tomli>1.0",
     "GitPython",
     "packaging",
 ]
-build-backend = "setuptools.build_meta"
+
+dynamic = ["version"]
+
+[project.urls]
+"Homepage" = "https://github.com/lsst/lsst_versions"
+
+[tool.setuptools.packages.find]
+where = ["python"]
+
+[tool.setuptools]
+zip-safe = false
+license-files = ["COPYRIGHT", "LICENSE"]
+
+[tool.setuptools.package-data]
+"lsst.lsst_versions" = ["py.typed"]
+
+[tool.setuptools.dynamic]
+version = { attr = "lsst_versions.get_lsst_version" }
+
 
 [tool.towncrier]
     package = "lsst-versions"
