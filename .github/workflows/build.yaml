@@ -11,6 +11,10 @@ on:
 jobs:
   build_and_test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+
     steps:
       - uses: actions/checkout@v3
         with:
@@ -20,16 +24,18 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: ${{ matrix.python-version }}
           cache: "pip"
           cache-dependency-path: "setup.cfg"
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade setuptools wheel
 
       # We have two cores so we can speed up the testing with xdist
       - name: Install pytest packages
         run: pip install pytest pytest-flake8 pytest-openfiles pytest-cov "flake8<5"
-
-      - name: Install prereqs for setuptools
-        run: pip install wheel
 
       - name: List installed packages
         shell: bash -l {0}

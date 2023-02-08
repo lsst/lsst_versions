@@ -68,7 +68,7 @@ class VersionsTestCase(unittest.TestCase):
         self.assertEqual(version, "1.1.0")
         # test for git repo
         version = get_lsst_version(GITDIR)
-        self.assertEqual(version, "4.0.0a20221037")
+        self.assertEqual(version, "3.2022.1037")
         # test for pyproject
         dirname = os.path.join(datadir, "pyproject")
         version = get_lsst_version(dirname)
@@ -77,17 +77,17 @@ class VersionsTestCase(unittest.TestCase):
     def test_versions(self):
         """Determine versions of a test repository."""
         versions = (
-            ("86427e5", "1.0.0a0"),  # No parents
-            ("86b5d01", "1.0.0a1"),
+            ("86427e5", "0.0.0"),  # No parents
+            ("86b5d01", "0.0.1"),
             ("595e858", "1.0"),
-            ("ea28756", "2.0.0a20220400"),
-            ("af0c308", "2.0.0a20220100"),
-            ("w.2022.1", "2.0.0a20220100"),
-            ("da7a09d", "2.0.0a20220401"),
+            ("ea28756", "1.2022.400"),
+            ("af0c308", "1.2022.100"),
+            ("w.2022.1", "1.2022.100"),
+            ("da7a09d", "1.2022.401"),
             ("v2.1.0", "2.1.0"),
-            ("w.2022.05", "2.0.0a20220700"),
+            ("w.2022.05", "1.2022.700"),
             ("v3.0.0", "3.0.0"),
-            ("3082cf0", "4.0.0a20221001"),
+            ("3082cf0", "3.2022.1001"),
             ("fed5a45", "3.0.0rc2"),
         )
 
@@ -121,7 +121,7 @@ class VersionsTestCase(unittest.TestCase):
 
         # Find a version but do not write.
         version = run_lsst_versions(GITDIR, False)
-        self.assertEqual(version, "4.0.0a20221037")
+        self.assertEqual(version, "3.2022.1037")
         self.assertFalse(os.path.exists(version_path))
 
         # Now write the file.
@@ -129,7 +129,7 @@ class VersionsTestCase(unittest.TestCase):
             version = run_lsst_versions(GITDIR, True)
         self.assertEqual(len(cm.output), 3, cm.output)
         self.assertRegex(cm.output[-1], f"Written version file to .*{version_file}$")
-        self.assertEqual(version, "4.0.0a20221037")
+        self.assertEqual(version, "3.2022.1037")
         self.assertTrue(os.path.exists(version_path))
 
     def test_pyproject_finding(self):

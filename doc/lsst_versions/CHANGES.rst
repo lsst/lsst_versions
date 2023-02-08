@@ -1,3 +1,14 @@
+lsst-versions 1.4.0 2023-02-08
+==============================
+
+New Features
+------------
+
+- The calculation of the developer version has been modified.
+  Previously alpha releases were constructed from weekly release tags.
+  This approach, 26.0.0a20230500, resulted in confusion in PyPI installs once a formal release was made.
+  To simplify installations with ``pip`` weekly developer release versions are now of the form 25.2023.500 -- the weekly is encoded in the minor and patchlevel parts of the version and these are now releases derived from the release currently being worked (and not alphas towards the next release).
+
 lsst-versions 1.3.0 2022-07-10
 ==============================
 
