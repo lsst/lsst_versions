@@ -196,9 +196,12 @@ def find_lsst_version(repo_dir: str = ".", version_commit: str = "HEAD") -> str:
     else:
         year, week = weekly_name[2:].split(".")
 
-    # Python pre-release versions must can only have a single integer
-    # after the "a".
-    dev_version = f"{relevant_release + 1}.0.0a{int(year):04d}{int(week):02d}{counter:02d}"
+    # Declare the developer version to be an evolution of the current
+    # release but with the year and week in the minor and patchlevel parts.
+    # Alpha versions for weeklies were used initially but once full releases
+    # are made it becomes very difficult for tooling to ever install the
+    # alphas.
+    dev_version = f"{relevant_release}.{year}.{week}{counter:02d}"
 
     # Convert the version to standard form (this can prevent warnings
     # coming from setuptools later on). For example 1.0.0a07 is rewritten
