@@ -247,7 +247,7 @@ def _find_version_path(dirname: str = ".") -> Optional[str]:
 
     if tomli is None:
         warnings.warn(  # type: ignore
-            "The tomli package is not installed. " "Unable to extract version file location."
+            "The tomli package is not installed. Unable to extract version file location."
         )
         return None
 
