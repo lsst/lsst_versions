@@ -104,7 +104,6 @@ class VersionsTestCase(unittest.TestCase):
 
     def test_version_writing(self):
         """Test that a version file can be written."""
-
         version_file = "version_test.py"
         version_path = os.path.join(GITDIR, version_file)
         try:

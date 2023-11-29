@@ -34,6 +34,7 @@ __version__ = "{version}"
 
 
 def scm_version():
+    """Determine the version of this package."""
     here = os.path.dirname(os.path.abspath(__file__))
     src = os.path.join(here, "python")
     sys.path.insert(0, src)
