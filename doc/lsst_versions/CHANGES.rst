@@ -1,3 +1,8 @@
+lsst-versions 1.5.0 2023-11-29
+==============================
+
+Package has been verified to work with python 3.12.
+
 lsst-versions 1.4.0 2023-02-08
 ==============================
 
