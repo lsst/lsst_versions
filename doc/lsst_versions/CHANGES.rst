@@ -1,3 +1,22 @@
+lsst-versions 1.6.0 2025-01-21
+==============================
+
+New Features
+------------
+
+- Adds support for [Hatchling](https://hatch.pypa.io/latest/config/build/#build-system).
+  Implements a Hatch "version source plugin" interface. (`DM-48515 <https://jira.lsstcorp.org/browse/DM-48515>`_)
+
+
+Miscellaneous Changes of Minor Interest
+---------------------------------------
+
+- Refreshes development and build environment specifications.
+
+- Removes retired `pytest-openfiles` testing dependency.
+
+- Uses secure `tarfile` data filter when supported by Python.
+
 lsst-versions 1.5.0 2023-11-29
 ==============================
 
