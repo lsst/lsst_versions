@@ -41,7 +41,11 @@ def setup_module(module):
     """
     if not os.path.exists(GITDIR):
         with tarfile.open(TARFILE, "r:gz") as tar:
-            tar.extractall(path=TESTDIR)
+            if hasattr(tarfile, "data_filter"):
+                tar.extractall(path=TESTDIR, filter="data")
+            else:
+                # Remove when minimum test matrix python >= 3.12
+                tar.extractall(path=TESTDIR)
 
     # Ensure that the pyproject.toml file is in the test directory.
     target = os.path.join(GITDIR, "pyproject.toml")
