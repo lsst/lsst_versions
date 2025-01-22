@@ -1,3 +1,11 @@
+[project]
+name = "lsst-versions"
+requires-python = ">= 3.8"
+dynamic = [
+    "version", "classifiers", "description", "entry-points", "scripts",
+    "dependencies", "optional-dependencies", "urls", "authors", "readme", "keywords"
+]
+
 [build-system]
 requires = [
     "setuptools",
@@ -8,7 +16,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.towncrier]
-    package = "lsst-versions"
+    package = "lsst_versions"
     package_dir = "python"
     filename = "doc/lsst_versions/CHANGES.rst"
     directory = "doc/changes"

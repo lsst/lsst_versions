@@ -28,6 +28,22 @@ It is expected that the package ``__init__.py`` will import this generated file 
 
 These minor changes should be sufficient for ``pip install .`` to build the package with the correct version.
 
+Using with Hatchling
+--------------------
+
+When building a project that employs the Hatchling build backend, ``lsst_versions`` can be used as a Version Source plugin.
+
+In the project's ``pyproject.toml``, update the build system specification:
+
+.. code-block:: toml
+
+    [build-system]
+    requires = ["hatchling", "lsst-versions"]
+    build-backend = "hatchling.build"
+
+    [tool.hatch.version]
+    source = "lsst"
+
 GitHub Actions
 ==============
 
