@@ -18,15 +18,11 @@ __all__ = ["find_lsst_version", "get_lsst_version", "infer_version_for_setuptool
 import logging
 import os
 import re
+import tomllib
 import warnings
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 from packaging.version import InvalidVersion, Version
-
-try:
-    import tomli
-except ImportError:
-    tomli = None  # type: ignore
 
 try:
     import git
@@ -248,14 +244,8 @@ def _find_version_path(dirname: str = ".") -> Optional[str]:
         warnings.warn(f"No pyproject.toml file found in {dirname}.")
         return None
 
-    if tomli is None:
-        warnings.warn(  # type: ignore
-            "The tomli package is not installed. Unable to extract version file location."
-        )
-        return None
-
     with open(path) as fh:
-        parsed = tomli.loads(fh.read())
+        parsed = tomllib.loads(fh.read())
 
     try:
         tool = parsed["tool"]["lsst_versions"]
