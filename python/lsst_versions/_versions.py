@@ -20,7 +20,7 @@ import os
 import re
 import tomllib
 import warnings
-from typing import TYPE_CHECKING, Dict, Optional, Tuple
+from typing import TYPE_CHECKING
 
 from packaging.version import InvalidVersion, Version
 
@@ -82,9 +82,9 @@ def find_lsst_version(repo_dir: str = ".", version_commit: str = "HEAD") -> str:
 
     repo = git.Repo(repo_dir)
 
-    releases: Dict[str, Version] = {}
-    major_releases: Dict[int, git.objects.commit.Commit] = {}
-    weeklies: Dict[str, str] = {}
+    releases: dict[str, Version] = {}
+    major_releases: dict[int, git.objects.commit.Commit] = {}
+    weeklies: dict[str, str] = {}
 
     for tagref in repo.tags:
         tag_name = str(tagref)
@@ -177,7 +177,7 @@ def find_lsst_version(repo_dir: str = ".", version_commit: str = "HEAD") -> str:
     # include an extra commit because it merges the branch for testing).
     counter = -1
     weekly_name = ""
-    optional_commit: Optional[git.objects.commit.Commit] = commit
+    optional_commit: git.objects.commit.Commit | None = commit
     while optional_commit:
         counter += 1
         if (hexsha := optional_commit.hexsha) in weeklies:
@@ -223,7 +223,7 @@ __version__ = "{version}"
         )
 
 
-def _find_version_path(dirname: str = ".") -> Optional[str]:
+def _find_version_path(dirname: str = ".") -> str | None:
     """Find the path to the python version file.
 
     Uses the ``pyproject.toml`` file in the given directory.
@@ -262,7 +262,7 @@ def _find_version_path(dirname: str = ".") -> Optional[str]:
     return os.path.join(dirname, write_to)
 
 
-def _find_version_from_pkginfo(dirname: str = ".") -> Optional[str]:
+def _find_version_from_pkginfo(dirname: str = ".") -> str | None:
     """Find version information from PKG-INFO file.
 
     Parameters
@@ -289,7 +289,7 @@ def _find_version_from_pkginfo(dirname: str = ".") -> Optional[str]:
     return content.get("Version", None)
 
 
-def _find_version_from_egg_info(dirname: str = ".") -> Optional[str]:
+def _find_version_from_egg_info(dirname: str = ".") -> str | None:
     """Find version information from egg-info directory.
 
     This is a fallback situation when no Git repository is available.
@@ -324,7 +324,7 @@ def _find_version_from_egg_info(dirname: str = ".") -> Optional[str]:
     return None
 
 
-def _find_version_from_metadata(dirname: str = ".") -> Optional[str]:
+def _find_version_from_metadata(dirname: str = ".") -> str | None:
     """Find version information from package metadata.
 
     This is a fallback situation when no Git repository is available.
@@ -348,7 +348,7 @@ def _find_version_from_metadata(dirname: str = ".") -> Optional[str]:
 
 def _process_version_writing(
     dirname: str = ".", write_version: bool = True, fallback: bool = False
-) -> Tuple[str, Optional[str]]:
+) -> tuple[str, str | None]:
     """Determine the version and, optionally, write it.
 
     Parameters
@@ -373,7 +373,7 @@ def _process_version_writing(
         written.
     """
     # Find the version file in current working directory.
-    write_to: Optional[str] = None
+    write_to: str | None = None
     written = None
     if write_version:
         write_to = _find_version_path(dirname)
@@ -408,7 +408,7 @@ def get_lsst_version(dirname: str = ".", fallback: bool = True) -> str:
 
     This function returns the HEAD version of a direcotry
     """
-    version: Optional[str] = None
+    version: str | None = None
     try:
         version = find_lsst_version(dirname, "HEAD")
     except Exception:

@@ -175,6 +175,7 @@ select = [
     "W",  # pycodestyle
     "D",  # pydocstyle
     "I",  # isort
+    "UP",  # Modernize
 ]
 
 [tool.ruff.lint.isort]
