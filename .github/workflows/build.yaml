@@ -18,6 +18,8 @@ jobs:
           {"python-version": "3.12", "pinned": true},
           {"python-version": "3.13", "pinned": true},
           {"python-version": "3.13", "pinned": false},
+          {"python-version": "3.14", "pinned": true},
+          {"python-version": "3.14", "pinned": false},
         ]
 
     steps:
