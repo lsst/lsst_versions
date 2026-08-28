@@ -20,6 +20,12 @@ jobs:
           {"python-version": "3.13", "pinned": false},
           {"python-version": "3.14", "pinned": true},
           {"python-version": "3.14", "pinned": false},
+          # Python 3.15 is not released yet.  There is no point testing it
+          # against the lockfile since the pinned versions predate it, so it is
+          # tested against the newest libraries in both the standard and the
+          # free-threaded build.
+          {"python-version": "3.15", "pinned": false, "prerelease": true},
+          {"python-version": "3.15t", "pinned": false, "prerelease": true},
         ]
 
     steps:
