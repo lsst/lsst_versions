@@ -33,6 +33,13 @@ if TYPE_CHECKING:
 
 _LOG = logging.getLogger("lsst_versions")
 
+# Reported when no version can be determined. This is a PEP 440 local
+# version, so it parses and sorts below every real release but public index
+# servers such as PyPI refuse to accept it. A build therefore succeeds in a
+# checkout with no Git history, such as the shallow clone Dependabot uses,
+# without any risk of the result being published.
+_UNKNOWN_VERSION = "0+unknown"
+
 # Environment variable that overrides the log level used while another
 # package is being built.
 _LOG_LEVEL_ENV = "LSST_VERSIONS_LOG_LEVEL"
@@ -517,7 +524,7 @@ def _process_version_writing(
     if write_version:
         write_to = _find_version_path(dirname)
         if write_to is None:
-            return "<unknown>", written
+            return _UNKNOWN_VERSION, written
 
     # Find the version of HEAD and current directory.
     version = get_lsst_version(dirname, fallback)
@@ -543,9 +550,16 @@ def get_lsst_version(dirname: str | os.PathLike[str] = ".", fallback: bool = Tru
     Returns
     -------
     version : `str`
-        The version string.
+        The version string for the HEAD of the given directory. If
+        ``fallback`` is `True` and no version can be found, ``0+unknown``
+        is returned.
 
-    This function returns the HEAD version of a direcotry
+    Notes
+    -----
+    ``0+unknown`` is a PEP 440 local version. It parses and sorts below any
+    real release but can not be uploaded to a public index server, so a
+    checkout with no Git history can still be built without the result
+    being mistaken for, or released as, a real version.
     """
     version: str | None = None
     try:
@@ -556,7 +570,12 @@ def get_lsst_version(dirname: str | os.PathLike[str] = ".", fallback: bool = Tru
     if version is None:
         version = _find_version_from_metadata(dirname)
         if version is None:
-            raise RuntimeError(f"Unable to find a version from Git or metadata within directory {dirname}")
+            _LOG.warning(
+                "Unable to find a version from Git or metadata within directory %s. Using %s.",
+                dirname,
+                _UNKNOWN_VERSION,
+            )
+            version = _UNKNOWN_VERSION
     return version
 
 
