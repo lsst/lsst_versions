@@ -67,9 +67,8 @@ build-backend = "lsst_versions._build_backend"
 zip-safe = false
 
 [tool.setuptools.dynamic]
-# Refer to the version submodule directly so that setuptools can read the
-# version by parsing the file rather than by importing the package.
-version = {attr = "lsst_versions.__version__.__version__"}
+# Written by the in-tree build backend before setuptools reads it.
+version = {file = "VERSION"}
 readme = {file = ["README.rst", "doc/lsst_versions/CHANGES.rst"], content-type = "text/x-rst"}
 
 [tool.setuptools.packages.find]
@@ -77,9 +76,6 @@ where = ["python"]
 
 [tool.setuptools.package-data]
 lsst_versions = ["py.typed"]
-
-[tool.lsst_versions]
-write_to = "python/lsst_versions/__version__.py"
 
 [tool.pydocstyle]
 convention = "numpy"

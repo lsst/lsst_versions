@@ -1,0 +1,2 @@
+``lsst_versions.__version__`` is now read from the installed package metadata using ``importlib.metadata`` rather than from a generated ``__version__.py`` file.
+It reports ``0.0.0`` if the package has not been installed.

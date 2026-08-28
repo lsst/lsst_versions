@@ -1,4 +1,4 @@
-python/lsst_versions/__version__.py
+/VERSION
 doc/_build/
 doc/py-api/
 tests/repo

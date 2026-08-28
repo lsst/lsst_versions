@@ -1,2 +1,3 @@
 The minimum supported Python version is now 3.11.
 This allows the standard library ``tomllib`` module to be used and the ``tomli`` dependency has been dropped.
+The unused ``ups`` directory has been removed; this package is not distributed with EUPS.

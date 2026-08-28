@@ -20,12 +20,12 @@ It avoids the need to hard-code and continually update a version string.
 It assumes the use of LSST DM release and tagging practices.
 """
 
+from importlib.metadata import PackageNotFoundError, version
+
 try:
-    from .__version__ import *
-except ImportError:
-    # The version file is generated at build time and is absent from a
-    # fresh checkout. A placeholder allows the build backend to import
-    # this package in order to calculate the real version.
+    __version__ = version("lsst-versions")
+except PackageNotFoundError:
+    # Package is not installed.
     __version__ = "0.0.0"
 
 # Importing __all__ ensures that the docstrings for the public APis
