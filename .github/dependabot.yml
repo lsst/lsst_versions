@@ -13,10 +13,8 @@ updates:
         patterns:
           - "*"
 
-  - package-ecosystem: "pip"
-    directories:
-      - "/"
-      - "/doc"
+  - package-ecosystem: "uv"
+    directory: "/"
     schedule:
       interval: "monthly"
     cooldown:
