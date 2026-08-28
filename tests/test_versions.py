@@ -88,7 +88,7 @@ def test_version_writing(testdir: Path, gitdir: Path, caplog: pytest.LogCaptureF
     with caplog.at_level(logging.INFO, logger="lsst_versions"):
         with pytest.warns(UserWarning):
             version = run_lsst_versions(testdir, True)
-    assert version == "<unknown>"
+    assert version == "0+unknown"
     assert "Unable to write version file." in messages(caplog)[-1]
 
     # Find a version but do not write.
@@ -140,10 +140,14 @@ def test_fallback_not_allowed(datadir: Path) -> None:
         process_version_writing(datadir, write_version=False, fallback=False)
 
 
-def test_fallback_without_metadata(datadir: Path) -> None:
-    """A fallback still fails when there is no metadata to fall back to."""
-    with pytest.raises(RuntimeError, match="Unable to find a version"):
-        process_version_writing(datadir / "no-pyproject", write_version=False, fallback=True)
+def test_fallback_without_metadata(datadir: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """With no Git and no metadata the unknown placeholder is reported."""
+    with caplog.at_level(logging.WARNING, logger="lsst_versions"):
+        version, _ = process_version_writing(datadir / "no-pyproject", write_version=False, fallback=True)
+    assert "Unable to find a version" in messages(caplog)[-1]
+    assert version == "0+unknown"
+    # The reported version must still be usable by packaging tools.
+    assert str(Version(version)) == "0+unknown"
 
 
 @pytest.fixture
