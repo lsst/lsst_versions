@@ -19,4 +19,4 @@ class LsstVersionSource(VersionSourceInterface):
         """Return the project version data."""
         from ._versions import find_lsst_version
 
-        return dict(version=find_lsst_version())
+        return dict(version=find_lsst_version(self.root))

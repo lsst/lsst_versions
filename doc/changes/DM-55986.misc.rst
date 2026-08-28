@@ -3,3 +3,4 @@ All build configuration has been consolidated into ``pyproject.toml``.
 The package is now built with an in-tree PEP 517 build backend, ``lsst_versions._build_backend``, which writes a plain text ``VERSION`` file before delegating to ``setuptools.build_meta``.
 This replaces the ``setup.py`` bootstrap that was needed because the ``setuptools`` entry point provided by this package is only available once the package is installed.
 Library versions for development and CI are now managed with ``uv`` and recorded in ``uv.lock``, and the GitHub Actions workflows use ``uv run`` against that locked environment.
+The Hatch version source plugin and the in-tree build backend are now covered by tests.

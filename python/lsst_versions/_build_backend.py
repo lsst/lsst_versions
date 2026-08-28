@@ -51,9 +51,6 @@ from setuptools.build_meta import prepare_metadata_for_build_wheel as _prepare_m
 # The root of this package's source tree, two levels above this file.
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Plain text file read by the tool.setuptools.dynamic.version setting.
-_VERSION_PATH = os.path.join(_ROOT, "VERSION")
-
 # Used when no version can be determined from Git or from a previously
 # written version file.
 _DEFAULT_VERSION = "0.0.1"
@@ -61,8 +58,30 @@ _DEFAULT_VERSION = "0.0.1"
 _ConfigSettings = dict[str, str | list[str]] | None
 
 
-def _read_written_version() -> str | None:
+def _version_path(root: str) -> str:
+    """Return the path to the plain text version file.
+
+    Parameters
+    ----------
+    root : `str`
+        Root of the source tree.
+
+    Returns
+    -------
+    path : `str`
+        Path to the ``VERSION`` file that is read by the
+        ``tool.setuptools.dynamic.version`` setting.
+    """
+    return os.path.join(root, "VERSION")
+
+
+def _read_written_version(root: str = _ROOT) -> str | None:
     """Read the version from a previously written ``VERSION`` file.
+
+    Parameters
+    ----------
+    root : `str`, optional
+        Root of the source tree.
 
     Returns
     -------
@@ -70,33 +89,40 @@ def _read_written_version() -> str | None:
         The version found in the file, or `None` if there is no such file
         or it is empty.
     """
-    if not os.path.isfile(_VERSION_PATH):
+    path = _version_path(root)
+    if not os.path.isfile(path):
         return None
 
-    with open(_VERSION_PATH) as fh:
+    with open(path) as fh:
         return fh.read().strip() or None
 
 
-def _write_version_file() -> None:
-    """Determine the version of this package and write the ``VERSION`` file."""
+def _write_version_file(root: str = _ROOT) -> None:
+    """Determine the version of a source tree and write the ``VERSION`` file.
+
+    Parameters
+    ----------
+    root : `str`, optional
+        Root of the source tree.
+    """
     from ._versions import get_lsst_version
 
     try:
         # Falling back to package metadata allows a source distribution that
         # is no longer part of a Git repository to be built.
-        version = get_lsst_version(_ROOT, fallback=True)
+        version = get_lsst_version(root, fallback=True)
     except Exception as e:
         # Git exceptions sometimes have no error message.
         msg = str(e) or repr(e)
         print(f"Failed to determine package version from Git: {msg}")
 
-        written_version = _read_written_version()
+        written_version = _read_written_version(root)
         if written_version is None:
             warnings.warn("Unable to determine package version. Falling back to default value.", stacklevel=2)
             written_version = _DEFAULT_VERSION
         version = written_version
 
-    with open(_VERSION_PATH, "w") as fh:
+    with open(_version_path(root), "w") as fh:
         print(version, file=fh)
 
 

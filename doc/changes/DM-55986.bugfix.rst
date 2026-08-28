@@ -1,0 +1,2 @@
+The Hatch version source plugin now calculates the version from the project root supplied by Hatch rather than from the current working directory.
+Previously a Hatch build started from a different directory could report the wrong version.
