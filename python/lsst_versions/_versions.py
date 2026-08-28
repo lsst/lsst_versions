@@ -15,11 +15,13 @@ from __future__ import annotations
 
 __all__ = ["find_lsst_version", "get_lsst_version", "infer_version_for_setuptools"]
 
+import contextlib
 import logging
 import os
 import re
 import tomllib
 import warnings
+from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
 from packaging.version import InvalidVersion, Version
@@ -33,6 +35,36 @@ if TYPE_CHECKING:
     import setuptools
 
 _LOG = logging.getLogger("lsst_versions")
+
+# Environment variable that overrides the log level used while another
+# package is being built.
+_LOG_LEVEL_ENV = "LSST_VERSIONS_LOG_LEVEL"
+
+
+@contextlib.contextmanager
+def _build_logging() -> Iterator[None]:
+    """Restrict logging from this package while another package is built.
+
+    Yields
+    ------
+    `None`
+        A context in which this package logs at ``INFO`` or above.
+
+    Notes
+    -----
+    The build system plugins run inside the build of some other package and
+    a debug message is issued for every tag in that package's Git
+    repository. A repository with many tags therefore buries the build
+    system's own output. The single informational message reporting the
+    chosen version is retained. The level can be changed by setting the
+    ``LSST_VERSIONS_LOG_LEVEL`` environment variable.
+    """
+    previous = _LOG.level
+    _LOG.setLevel(os.environ.get(_LOG_LEVEL_ENV, "INFO").upper())
+    try:
+        yield
+    finally:
+        _LOG.setLevel(previous)
 
 
 def find_lsst_version(repo_dir: str = ".", version_commit: str = "HEAD") -> str:
@@ -443,8 +475,13 @@ def infer_version_for_setuptools(dist: setuptools.Distribution) -> None:
 
     If Git can not be used, an attempt will be made to read a PKG-INFO
     file. This allows source-only distributions to be built.
+
+    Debug logging from this package is suppressed so that it does not
+    obscure the output of the build that triggered it. Set the
+    ``LSST_VERSIONS_LOG_LEVEL`` environment variable to see it.
     """
-    version, written = _process_version_writing(".", True, fallback=True)
+    with _build_logging():
+        version, written = _process_version_writing(".", True, fallback=True)
     if not written:
         return
 

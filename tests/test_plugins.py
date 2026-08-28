@@ -11,9 +11,12 @@
 
 """Tests of the build system plugins that consume the version calculation."""
 
+import logging
 import os
 import tempfile
 import unittest
+import unittest.mock
+from types import SimpleNamespace
 from unittest.mock import patch
 
 try:
@@ -26,13 +29,14 @@ try:
 except ImportError:
     hatchling = None
 
-from lsst_versions import _build_backend, find_lsst_version
+from lsst_versions import _build_backend, find_lsst_version, infer_version_for_setuptools
 from lsst_versions._build_backend import (
     _DEFAULT_VERSION,
     _read_written_version,
     _version_path,
     _write_version_file,
 )
+from lsst_versions._versions import _LOG_LEVEL_ENV
 from test_versions import GITDIR, setup_module  # noqa: F401
 
 
@@ -54,6 +58,17 @@ class HatchVersionSourceTestCase(unittest.TestCase):
         # than the current working directory.
         source = LsstVersionSource(GITDIR, {})
         self.assertEqual(source.get_version_data(), {"version": find_lsst_version(GITDIR)})
+
+    def test_logging_is_quiet(self):
+        from lsst_versions.hatch import LsstVersionSource
+
+        # The per-tag debug messages must not reach the build output but
+        # the message reporting the chosen version is still wanted.
+        source = LsstVersionSource(GITDIR, {})
+        with self.assertLogs("lsst_versions", level=logging.DEBUG) as cm:
+            source.get_version_data()
+        self.assertNotIn("DEBUG", [record.levelname for record in cm.records])
+        self.assertIn("INFO", [record.levelname for record in cm.records])
 
 
 @unittest.skipIf(git is None, "GitPython package is not installed.")
@@ -96,6 +111,38 @@ class BuildBackendTestCase(unittest.TestCase):
         with self.assertWarns(UserWarning):
             _write_version_file(self.tmpdir)
         self.assertEqual(_read_written_version(self.tmpdir), _DEFAULT_VERSION)
+
+
+@unittest.skipIf(git is None, "GitPython package is not installed.")
+class SetuptoolsHookTestCase(unittest.TestCase):
+    """Test the setuptools entry point."""
+
+    @staticmethod
+    def fake_distribution() -> SimpleNamespace:
+        """Stand in for the setuptools distribution being built."""
+        return SimpleNamespace(metadata=SimpleNamespace(version=None))
+
+    def setUp(self):
+        self.enterContext(unittest.mock.patch.dict(os.environ))
+        os.environ.pop(_LOG_LEVEL_ENV, None)
+        cwd = os.getcwd()
+        os.chdir(GITDIR)
+        self.addCleanup(os.chdir, cwd)
+        self.addCleanup(os.unlink, os.path.join(GITDIR, "version_test.py"))
+
+    def test_logging_is_quiet(self):
+        # A debug message for every tag would otherwise be emitted into the
+        # output of the build that triggered this.
+        dist = self.fake_distribution()
+        with self.assertLogs("lsst_versions", level=logging.DEBUG) as cm:
+            infer_version_for_setuptools(dist)
+        self.assertNotIn("DEBUG", [record.levelname for record in cm.records])
+        self.assertEqual(dist.metadata.version, find_lsst_version(GITDIR))
+
+    def test_logging_can_be_restored(self):
+        os.environ[_LOG_LEVEL_ENV] = "DEBUG"
+        with self.assertLogs("lsst_versions", level=logging.DEBUG):
+            infer_version_for_setuptools(self.fake_distribution())
 
 
 @unittest.skipIf(git is None, "GitPython package is not installed.")

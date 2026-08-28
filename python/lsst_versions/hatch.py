@@ -16,7 +16,15 @@ class LsstVersionSource(VersionSourceInterface):
     PLUGIN_NAME = "lsst"
 
     def get_version_data(self) -> dict:
-        """Return the project version data."""
-        from ._versions import find_lsst_version
+        """Return the project version data.
 
-        return dict(version=find_lsst_version(self.root))
+        Notes
+        -----
+        Debug logging from this package is suppressed so that it does not
+        obscure the output of the build that triggered it. Set the
+        ``LSST_VERSIONS_LOG_LEVEL`` environment variable to see it.
+        """
+        from ._versions import _build_logging, find_lsst_version
+
+        with _build_logging():
+            return dict(version=find_lsst_version(self.root))

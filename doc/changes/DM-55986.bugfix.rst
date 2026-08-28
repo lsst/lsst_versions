@@ -1,2 +1,7 @@
 The Hatch version source plugin now calculates the version from the project root supplied by Hatch rather than from the current working directory.
 Previously a Hatch build started from a different directory could report the wrong version.
+
+The build system plugins no longer emit their own debug logging into the output of the package being built.
+A debug message was previously issued for every tag in the repository, which buried the output of tools that enable debug logging during a build, such as ``uv pip install -v``.
+The informational message reporting the chosen version is retained.
+Set the ``LSST_VERSIONS_LOG_LEVEL`` environment variable to restore the debug messages.
