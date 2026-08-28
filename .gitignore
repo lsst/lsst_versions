@@ -1,6 +1,6 @@
 /VERSION
 doc/_build/
-doc/py-api/
+doc/api/
 tests/repo
 
 # Byte-compiled / optimized / DLL files
