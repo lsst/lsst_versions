@@ -115,7 +115,7 @@ def find_lsst_version(repo_dir: str = ".", version_commit: str = "HEAD") -> str:
     repo = git.Repo(repo_dir)
 
     releases: dict[str, Version] = {}
-    major_releases: dict[int, git.objects.commit.Commit] = {}
+    major_releases: dict[tuple[int, int], git.objects.commit.Commit] = {}
     weeklies: dict[str, str] = {}
 
     for tagref in repo.tags:
@@ -158,9 +158,10 @@ def find_lsst_version(repo_dir: str = ".", version_commit: str = "HEAD") -> str:
             else:
                 releases[hexsha] = parsed
 
-            # Assume that only major releases matter when looking through
+            # Assume that only major.minor releases matter when looking through
             # the history for developer versions.
-            major_releases[int(parsed.major)] = release_commit
+            semver = (int(parsed.major), int(parsed.minor))
+            major_releases[semver] = release_commit
         elif tag_name.startswith("w."):
             _LOG.debug("Tag %s matches a weekly", tag_name)
             weekly = tagref.tag
@@ -193,15 +194,15 @@ def find_lsst_version(repo_dir: str = ".", version_commit: str = "HEAD") -> str:
 
     # Scan through all the releases for the first that does not have this
     # commit as an ancestor.
-    relevant_release = 0
+    relevant_release = (0, 0)
     for major_release in sorted(major_releases, reverse=True):
         major_commit = major_releases[major_release]
         if not repo.is_ancestor(commit, major_commit):
             relevant_release = major_release
             break
 
-    if relevant_release == 0:
-        warnings.warn(f"Could not find release tag as ancestor for {commit} in repo '{repo_dir}', using 0.")
+    if relevant_release == (0, 0):
+        warnings.warn(f"Could not find release tag as ancestor for {commit} in repo '{repo_dir}', using 0.0.")
 
     # Look through the parents until we find a weekly commit.
     # The counter can report confusing results if this is being used for
@@ -218,18 +219,19 @@ def find_lsst_version(repo_dir: str = ".", version_commit: str = "HEAD") -> str:
         parents = optional_commit.parents
         optional_commit = parents[0] if parents else None
 
+    major, minor = relevant_release
     if not weekly_name:
-        # No weekly was found. This must be a very early commit.
-        year, week = "0", "0"
+        # No weekly was found. Fall back to semver
+        dev_version = f"{major}.{minor}.{counter:02d}"
     else:
+        # Declare the developer version to be an evolution of the current
+        # release but with the year and week in the minor and patchlevel parts.
+        # Alpha versions for weeklies were used initially but once full releases
+        # are made it becomes very difficult for tooling to ever install the
+        # alphas.
         year, week = weekly_name[2:].split(".")
+        dev_version = f"{major}.{year}.{week}{counter:02d}"
 
-    # Declare the developer version to be an evolution of the current
-    # release but with the year and week in the minor and patchlevel parts.
-    # Alpha versions for weeklies were used initially but once full releases
-    # are made it becomes very difficult for tooling to ever install the
-    # alphas.
-    dev_version = f"{relevant_release}.{year}.{week}{counter:02d}"
 
     # Convert the version to standard form (this can prevent warnings
     # coming from setuptools later on). For example 1.0.0a07 is rewritten
