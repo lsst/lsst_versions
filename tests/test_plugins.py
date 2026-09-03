@@ -77,27 +77,24 @@ class BuildBackendTestCase(unittest.TestCase):
         self.assertIsNone(_read_written_version(self.tmpdir))
 
     def test_read_empty(self):
-        with open(_version_path(self.tmpdir), "w") as fh:
-            fh.write("\n")
+        _version_path(self.tmpdir).write_text("\n")
         self.assertIsNone(_read_written_version(self.tmpdir))
 
     def test_read_version(self):
-        with open(_version_path(self.tmpdir), "w") as fh:
-            print("1.2.3", file=fh)
+        _version_path(self.tmpdir).write_text("1.2.3\n")
         self.assertEqual(_read_written_version(self.tmpdir), "1.2.3")
 
     def test_write_from_git(self):
         # The version file is written into the root of the tree being
         # versioned, so the test repository gains one for the duration.
         _write_version_file(GITDIR)
-        self.addCleanup(os.unlink, _version_path(GITDIR))
+        self.addCleanup(_version_path(GITDIR).unlink)
         self.assertEqual(_read_written_version(GITDIR), find_lsst_version(GITDIR))
 
     def test_write_reuses_existing(self):
         # No Git repository and no package metadata, so the version already
         # in the file must be retained. This is the source distribution case.
-        with open(_version_path(self.tmpdir), "w") as fh:
-            print("9.9.9", file=fh)
+        _version_path(self.tmpdir).write_text("9.9.9\n")
         _write_version_file(self.tmpdir)
         self.assertEqual(_read_written_version(self.tmpdir), "9.9.9")
 

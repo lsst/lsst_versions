@@ -3,3 +3,5 @@ It reports ``0.0.0`` if the package has not been installed.
 
 ``GitPython`` is now an unconditional requirement of this package rather than an optional import.
 The ``RuntimeError`` that was raised when it was missing has been removed.
+
+The public functions now accept any :py:class:`os.PathLike` for the directory or repository they are given, rather than only a `str`.

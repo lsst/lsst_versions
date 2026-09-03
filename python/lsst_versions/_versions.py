@@ -22,6 +22,7 @@ import re
 import tomllib
 import warnings
 from collections.abc import Iterator
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import git
@@ -63,12 +64,12 @@ def _build_logging() -> Iterator[None]:
         _LOG.setLevel(previous)
 
 
-def find_lsst_version(repo_dir: str = ".", version_commit: str = "HEAD") -> str:
+def find_lsst_version(repo_dir: str | os.PathLike[str] = ".", version_commit: str = "HEAD") -> str:
     """Return the version for the given LSST commit.
 
     Parameters
     ----------
-    repo_dir : `str`, optional
+    repo_dir : `str` or `os.PathLike`, optional
         Path to the relevant Git repository.
     version_commit : `str`, optional
         Commit for which the version is to be calculated.
@@ -236,41 +237,37 @@ def find_lsst_version(repo_dir: str = ".", version_commit: str = "HEAD") -> str:
     return dev_version
 
 
-def _write_version(version: str, version_path: str) -> None:
+def _write_version(version: str, version_path: str | os.PathLike[str]) -> None:
     """Write the version information to the specified file."""
-    with open(version_path, "w") as fh:
-        print(
-            f"""__all__ = ["__version__"]
+    Path(version_path).write_text(
+        f"""__all__ = ["__version__"]
 __version__ = "{version}"
-""",
-            file=fh,
-            end="",
-        )
+"""
+    )
 
 
-def _find_version_path(dirname: str = ".") -> str | None:
+def _find_version_path(dirname: str | os.PathLike[str] = ".") -> Path | None:
     """Find the path to the python version file.
 
     Uses the ``pyproject.toml`` file in the given directory.
 
     Parameters
     ----------
-    dirname : `str`, optional
+    dirname : `str` or `os.PathLike`, optional
         The directory to locate the ``pyproject.toml`` file.
 
     Returns
     -------
-    path : `str` or `None`
+    path : `pathlib.Path` or `None`
         The path (including ``dir``) to the version file. Returns ``None``
         if the path could not be determined.
     """
-    path = os.path.join(dirname, "pyproject.toml")
-    if not os.path.isfile(path):
+    path = Path(dirname) / "pyproject.toml"
+    if not path.is_file():
         warnings.warn(f"No pyproject.toml file found in {dirname}.")
         return None
 
-    with open(path) as fh:
-        parsed = tomllib.loads(fh.read())
+    parsed = tomllib.loads(path.read_text())
 
     try:
         tool = parsed["tool"]["lsst_versions"]
@@ -284,15 +281,15 @@ def _find_version_path(dirname: str = ".") -> str | None:
         warnings.warn("lsst_versions package enabled but no write_to setting found in pyproject.toml.")
         return None
 
-    return os.path.join(dirname, write_to)
+    return Path(dirname) / write_to
 
 
-def _find_version_from_pkginfo(dirname: str = ".") -> str | None:
+def _find_version_from_pkginfo(dirname: str | os.PathLike[str] = ".") -> str | None:
     """Find version information from PKG-INFO file.
 
     Parameters
     ----------
-    dirname : `str`
+    dirname : `str` or `os.PathLike`
         The directory of the distribution.
 
     Returns
@@ -300,12 +297,12 @@ def _find_version_from_pkginfo(dirname: str = ".") -> str | None:
     version : `str` or `None`
         The version string. `None` if no version can be found.
     """
-    pkginfo = os.path.join(dirname, "PKG-INFO")
-    if not os.path.exists(pkginfo):
+    pkginfo = Path(dirname) / "PKG-INFO"
+    if not pkginfo.exists():
         return None
 
     content: dict[str, str] = {}
-    with open(pkginfo) as fh:
+    with pkginfo.open() as fh:
         for line in fh:
             if ": " in line:
                 line = line.strip()
@@ -314,14 +311,14 @@ def _find_version_from_pkginfo(dirname: str = ".") -> str | None:
     return content.get("Version", None)
 
 
-def _find_version_from_egg_info(dirname: str = ".") -> str | None:
+def _find_version_from_egg_info(dirname: str | os.PathLike[str] = ".") -> str | None:
     """Find version information from egg-info directory.
 
     This is a fallback situation when no Git repository is available.
 
     Parameters
     ----------
-    dirname : `str`
+    dirname : `str` or `os.PathLike`
         The directory of the distribution.
 
     Returns
@@ -335,13 +332,13 @@ def _find_version_from_egg_info(dirname: str = ".") -> str | None:
     standard ``python`` directory.
     Does not look at pyproject.toml for tool.setuptools.packages.find.where.
     """
-    for subdir in ("python", ""):
-        candidate = os.path.join(dirname, subdir)
-        if not os.path.isdir(candidate):
+    root = Path(dirname)
+    for candidate in (root / "python", root):
+        if not candidate.is_dir():
             continue
-        for file in os.listdir(candidate):
-            if file.endswith(".egg-info"):
-                version = _find_version_from_pkginfo(os.path.join(candidate, file))
+        for entry in candidate.iterdir():
+            if entry.name.endswith(".egg-info"):
+                version = _find_version_from_pkginfo(entry)
                 if version is not None:
                     return version
                 break
@@ -349,14 +346,14 @@ def _find_version_from_egg_info(dirname: str = ".") -> str | None:
     return None
 
 
-def _find_version_from_metadata(dirname: str = ".") -> str | None:
+def _find_version_from_metadata(dirname: str | os.PathLike[str] = ".") -> str | None:
     """Find version information from package metadata.
 
     This is a fallback situation when no Git repository is available.
 
     Parameters
     ----------
-    dirname : `str`
+    dirname : `str` or `os.PathLike`
         The directory of the distribution.
 
     Returns
@@ -372,13 +369,13 @@ def _find_version_from_metadata(dirname: str = ".") -> str | None:
 
 
 def _process_version_writing(
-    dirname: str = ".", write_version: bool = True, fallback: bool = False
-) -> tuple[str, str | None]:
+    dirname: str | os.PathLike[str] = ".", write_version: bool = True, fallback: bool = False
+) -> tuple[str, Path | None]:
     """Determine the version and, optionally, write it.
 
     Parameters
     ----------
-    dirname : `str`
+    dirname : `str` or `os.PathLike`
         The directory to use to find a version.
     write_version : `bool`
         If `True`, an attempt will be made to write the version file.
@@ -393,12 +390,12 @@ def _process_version_writing(
     -------
     version : `str`
         The version string.
-    written : `str`, optional
+    written : `pathlib.Path`, optional
         Path to the file that was written, or `None` if no version file was
         written.
     """
     # Find the version file in current working directory.
-    write_to: str | None = None
+    write_to: Path | None = None
     written = None
     if write_version:
         write_to = _find_version_path(dirname)
@@ -414,12 +411,12 @@ def _process_version_writing(
     return version, write_to
 
 
-def get_lsst_version(dirname: str = ".", fallback: bool = True) -> str:
+def get_lsst_version(dirname: str | os.PathLike[str] = ".", fallback: bool = True) -> str:
     """Determine the version and return as string
 
     Parameters
     ----------
-    dirname : `str`, optional
+    dirname : `str` or `os.PathLike`, optional
         The directory to use to find a version.
     fallback : `bool`, optional
         If `True` and no Git version can be found, an attempt will be made

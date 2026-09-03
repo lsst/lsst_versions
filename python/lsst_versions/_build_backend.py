@@ -34,6 +34,7 @@ __all__ = [
 
 import os
 import warnings
+from pathlib import Path
 
 from setuptools.build_meta import build_editable as _build_editable
 from setuptools.build_meta import build_sdist as _build_sdist
@@ -49,7 +50,7 @@ from setuptools.build_meta import (
 from setuptools.build_meta import prepare_metadata_for_build_wheel as _prepare_metadata_for_build_wheel
 
 # The root of this package's source tree, two levels above this file.
-_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_ROOT = Path(__file__).absolute().parent.parent.parent
 
 # Used when no version can be determined from Git or from a previously
 # written version file.
@@ -58,29 +59,29 @@ _DEFAULT_VERSION = "0.0.1"
 _ConfigSettings = dict[str, str | list[str]] | None
 
 
-def _version_path(root: str) -> str:
+def _version_path(root: str | os.PathLike[str]) -> Path:
     """Return the path to the plain text version file.
 
     Parameters
     ----------
-    root : `str`
+    root : `str` or `os.PathLike`
         Root of the source tree.
 
     Returns
     -------
-    path : `str`
+    path : `pathlib.Path`
         Path to the ``VERSION`` file that is read by the
         ``tool.setuptools.dynamic.version`` setting.
     """
-    return os.path.join(root, "VERSION")
+    return Path(root) / "VERSION"
 
 
-def _read_written_version(root: str = _ROOT) -> str | None:
+def _read_written_version(root: str | os.PathLike[str] = _ROOT) -> str | None:
     """Read the version from a previously written ``VERSION`` file.
 
     Parameters
     ----------
-    root : `str`, optional
+    root : `str` or `os.PathLike`, optional
         Root of the source tree.
 
     Returns
@@ -90,19 +91,18 @@ def _read_written_version(root: str = _ROOT) -> str | None:
         or it is empty.
     """
     path = _version_path(root)
-    if not os.path.isfile(path):
+    if not path.is_file():
         return None
 
-    with open(path) as fh:
-        return fh.read().strip() or None
+    return path.read_text().strip() or None
 
 
-def _write_version_file(root: str = _ROOT) -> None:
+def _write_version_file(root: str | os.PathLike[str] = _ROOT) -> None:
     """Determine the version of a source tree and write the ``VERSION`` file.
 
     Parameters
     ----------
-    root : `str`, optional
+    root : `str` or `os.PathLike`, optional
         Root of the source tree.
     """
     from ._versions import get_lsst_version
@@ -122,8 +122,7 @@ def _write_version_file(root: str = _ROOT) -> None:
             written_version = _DEFAULT_VERSION
         version = written_version
 
-    with open(_version_path(root), "w") as fh:
-        print(version, file=fh)
+    _version_path(root).write_text(version + "\n")
 
 
 def build_wheel(
