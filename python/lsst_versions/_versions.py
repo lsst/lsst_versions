@@ -64,6 +64,110 @@ def _build_logging() -> Iterator[None]:
         _LOG.setLevel(previous)
 
 
+def _guess_next_version(version: Version) -> str:
+    """Guess the release that will follow the given release.
+
+    Parameters
+    ----------
+    version : `packaging.version.Version`
+        The release to base the guess on.
+
+    Returns
+    -------
+    guessed : `str`
+        The release expected to follow ``version``.
+
+    Notes
+    -----
+    This implements the ``guess-next-dev`` version scheme defined by
+    ``setuptools_scm``, so that this package can follow the same convention
+    without depending on it. Any local segment is discarded, a tag that is
+    itself a ``.dev0`` placeholder resolves to the release it names, and
+    otherwise the trailing number is incremented. ``1.6.0`` therefore becomes
+    ``1.6.1`` and ``3.0.0rc1`` becomes ``3.0.0rc2``.
+    """
+    # A local segment says nothing about the next release.
+    public = str(version).partition("+")[0]
+
+    if ".dev" in public:
+        # A development tag is a placeholder for the release it names, so
+        # that release is the answer rather than the one after it.
+        prefix, _, tail = public.rpartition(".dev")
+        if tail != "0":
+            # As in setuptools_scm: the distance counted from such a tag
+            # would conflict with the number already in it.
+            raise ValueError(f"Unsupported development release tag {public}; only .dev0 can be used.")
+        return prefix
+
+    if (matched := re.match(r"(.*?)(\d+)$", public)) is None:
+        raise ValueError(f"Unable to guess the release following {public}; it does not end in a number.")
+
+    prefix, tail = matched.groups()
+    return f"{prefix}{int(tail) + 1}"
+
+
+def _find_semver_dev_version(
+    repo: git.Repo,
+    commit: git.objects.commit.Commit,
+    releases: dict[str, Version],
+    repo_dir: str | os.PathLike[str],
+) -> str:
+    """Derive a development version for a repository without weekly tags.
+
+    Parameters
+    ----------
+    repo : `git.Repo`
+        The repository being inspected.
+    commit : `git.objects.commit.Commit`
+        The commit that the version is being calculated for.
+    releases : `dict` [ `str`, `packaging.version.Version` ]
+        Versions of every release tag in the repository, indexed by the
+        hex SHA of the commit that the tag refers to.
+    repo_dir : `str` or `os.PathLike`
+        Path to the repository, used for diagnostics.
+
+    Returns
+    -------
+    dev_version : `str`
+        The release expected to follow the most recent release reachable
+        from ``commit``, with a PEP 440 development segment counting the
+        commits made since that release.
+
+    Notes
+    -----
+    This is the ``guess-next-dev`` scheme used by ``setuptools_scm``. A tree
+    22 commits after ``1.6.0`` is ``1.6.1.dev22``, which sorts above
+    ``1.6.0`` and below ``1.6.1``.
+    """
+    # The most recent release is the highest version whose tagged commit is
+    # in the history of the commit being versioned. Tags on unrelated
+    # branches are therefore ignored.
+    ancestors: list[tuple[Version, str]] = []
+    for hexsha, version in releases.items():
+        if repo.is_ancestor(repo.commit(hexsha), commit):
+            ancestors.append((version, hexsha))
+
+    if ancestors:
+        base, release_hexsha = max(ancestors, key=lambda entry: entry[0])
+        commit_range = f"{release_hexsha}..{commit.hexsha}"
+    else:
+        warnings.warn(
+            f"Could not find release tag as ancestor for {commit} in repo '{repo_dir}', using 0.0.0."
+        )
+        base = Version("0.0.0")
+        commit_range = commit.hexsha
+
+    # Distance from the release to this commit, matching the count reported
+    # by "git describe".
+    distance = int(repo.git.rev_list("--count", commit_range))
+
+    dev_version = str(Version(f"{_guess_next_version(base)}.dev{distance}"))
+
+    _LOG.info("Using version %s for commit %s derived from release %s", dev_version, commit.hexsha, base)
+
+    return dev_version
+
+
 def find_lsst_version(repo_dir: str | os.PathLike[str] = ".", version_commit: str = "HEAD") -> str:
     """Return the version for the given LSST commit.
 
@@ -100,11 +204,19 @@ def find_lsst_version(repo_dir: str | os.PathLike[str] = ".", version_commit: st
     #. Determine the highest branch/tag ``vNN`` that does not have this
        commit as an ancestor.
     #. The closest ``w.YYYY.WW`` tag.
-    #. The number of commits from this commit to the closest weekly tag, ``c``.
-    #. Creating a new version of ``(NN+1).0.0aYYYYWWCC``
+    #. The number of commits from this commit to the closest weekly tag,
+       ``CC``.
+    #. Creating a new version of ``NN.YYYY.WWCC``.
 
     If a commit matches that of a formal release tag (either proper release
     or release candidate) that version is used directly.
+
+    Repositories that have no weekly tags at all are versioned by semantic
+    versioning instead, following the ``guess-next-dev`` scheme used by
+    ``setuptools_scm``: the release expected to follow the most recent release
+    tag reachable from the commit, with a PEP 440 development segment counting
+    the commits made since that tag. A tree 22 commits after ``1.6.0`` is
+    therefore ``1.6.1.dev22``.
     """
     repo = git.Repo(repo_dir)
 
@@ -184,6 +296,11 @@ def find_lsst_version(repo_dir: str | os.PathLike[str] = ".", version_commit: st
     if (hexsha := commit.hexsha) in releases:
         _LOG.debug("Requested commit %s matches release %s.", commit.hexsha, releases[hexsha])
         return str(releases[hexsha])
+
+    if not weeklies:
+        # The repository does not follow the LSST weekly tagging convention
+        # so there is nothing to encode a year and week from.
+        return _find_semver_dev_version(repo, commit, releases, repo_dir)
 
     # Scan through all the releases for the first that does not have this
     # commit as an ancestor.

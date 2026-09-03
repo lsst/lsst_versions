@@ -12,6 +12,7 @@
 import os
 import sys
 import tarfile
+import tempfile
 import unittest
 
 import git
@@ -22,7 +23,9 @@ from lsst_versions._cmd import _run_command as run_lsst_versions
 
 # And to check pyproject.toml parsing and PKG-INFO parsing.
 from lsst_versions._versions import _find_version_path as find_version_path
+from lsst_versions._versions import _guess_next_version as guess_next_version
 from lsst_versions._versions import _process_version_writing as process_version_writing
+from packaging.version import Version
 
 TESTDIR = os.path.abspath(os.path.dirname(__file__))
 GITDIR = os.path.join(TESTDIR, "repo")
@@ -176,6 +179,88 @@ class VersionsTestCase(unittest.TestCase):
         # Fallback allowed but no PKG-INFO.
         with self.assertRaises(RuntimeError):
             process_version_writing(os.path.join(datadir, "no-pyproject"), write_version=False, fallback=True)
+
+
+class SemanticVersionTestCase(unittest.TestCase):
+    """Test version finding for repositories that have no weekly tags."""
+
+    def setUp(self):
+        self.tmpdir = self.enterContext(tempfile.TemporaryDirectory())
+        self.repo = git.Repo.init(self.tmpdir)
+        with self.repo.config_writer() as config:
+            config.set_value("user", "name", "lsst_versions test")
+            config.set_value("user", "email", "test@example.com")
+            # Signing would need a key that the test environment does not have.
+            config.set_value("commit", "gpgsign", "false")
+
+    def commit(self, message):
+        """Add an empty commit to the test repository."""
+        self.repo.index.commit(message)
+
+    def test_release_tag(self):
+        """A commit that is itself tagged uses that version directly."""
+        self.commit("Initial commit")
+        self.repo.create_tag("1.0.0")
+        self.assertEqual(find_lsst_version(self.tmpdir), "1.0.0")
+
+    def test_dev_version(self):
+        """Commits after a release count towards the following release."""
+        self.commit("Initial commit")
+        self.repo.create_tag("1.0.0")
+        self.commit("Development")
+        self.repo.create_tag("v1.6.0")
+        for i in range(3):
+            self.commit(f"Development {i}")
+        self.assertEqual(find_lsst_version(self.tmpdir), "1.6.1.dev3")
+
+    def test_release_candidate(self):
+        """The number bumped is the trailing one, so an rc bumps the rc."""
+        self.commit("Initial commit")
+        self.repo.create_tag("v3.0.0rc1")
+        self.commit("Development")
+        self.assertEqual(find_lsst_version(self.tmpdir), "3.0.0rc2.dev1")
+
+    def test_highest_release_wins(self):
+        """A later tag with a lower version does not move the version back."""
+        self.commit("Initial commit")
+        self.repo.create_tag("1.6.0")
+        self.commit("Backport")
+        self.repo.create_tag("1.2.0")
+        self.commit("Development")
+        self.assertEqual(find_lsst_version(self.tmpdir), "1.6.1.dev2")
+
+    def test_no_release_tags(self):
+        """A repository with no tags at all still gets a usable version."""
+        self.commit("Initial commit")
+        self.commit("Development")
+        with self.assertWarns(UserWarning) as cm:
+            version = find_lsst_version(self.tmpdir)
+        self.assertIn("Could not find release tag", str(cm.warning))
+        self.assertEqual(version, "0.0.1.dev2")
+
+
+class GuessNextVersionTestCase(unittest.TestCase):
+    """Test the ``setuptools_scm`` guess-next-dev version calculation."""
+
+    def test_guesses(self):
+        guesses = (
+            ("1.6.0", "1.6.1"),
+            ("1.6", "1.7"),
+            ("3.0.0rc1", "3.0.0rc2"),
+            ("1.0.0a7", "1.0.0a8"),
+            ("1.0.0.post1", "1.0.0.post2"),
+            # A local segment says nothing about the next release.
+            ("1.0.0+g1234abc", "1.0.1"),
+            # A development tag names the release it is a placeholder for.
+            ("2.0.0.dev0", "2.0.0"),
+        )
+        for version, expected in guesses:
+            with self.subTest(version=version):
+                self.assertEqual(guess_next_version(Version(version)), expected)
+
+    def test_unsupported_dev_tag(self):
+        with self.assertRaises(ValueError):
+            guess_next_version(Version("2.0.0.dev1"))
 
 
 if __name__ == "__main__":
