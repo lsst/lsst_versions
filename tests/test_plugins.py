@@ -12,12 +12,12 @@
 """Tests of the build system plugins that consume the version calculation."""
 
 import logging
-import os
-import tempfile
-import unittest
-import unittest.mock
+from collections.abc import Iterator
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+
+import pytest
 
 # Hatchling is only in the dev dependency group, so tests run from a plain
 # environment can still exercise everything else.
@@ -34,114 +34,131 @@ from lsst_versions._build_backend import (
     _write_version_file,
 )
 from lsst_versions._versions import _LOG_LEVEL_ENV
-from test_versions import GITDIR, setup_module  # noqa: F401
+
+requires_hatchling = pytest.mark.skipif(hatchling is None, reason="hatchling package is not installed.")
 
 
-@unittest.skipIf(hatchling is None, "hatchling package is not installed.")
-class HatchVersionSourceTestCase(unittest.TestCase):
-    """Test the Hatch version source plugin."""
-
-    def test_register(self):
-        from lsst_versions.hatch import LsstVersionSource, hatch_register_version_source
-
-        self.assertIs(hatch_register_version_source(), LsstVersionSource)
-        self.assertEqual(LsstVersionSource.PLUGIN_NAME, "lsst")
-
-    def test_get_version_data(self):
-        from lsst_versions.hatch import LsstVersionSource
-
-        # The plugin must use the project root given to it by Hatch rather
-        # than the current working directory.
-        source = LsstVersionSource(GITDIR, {})
-        self.assertEqual(source.get_version_data(), {"version": find_lsst_version(GITDIR)})
-
-    def test_logging_is_quiet(self):
-        from lsst_versions.hatch import LsstVersionSource
-
-        # The per-tag debug messages must not reach the build output but
-        # the message reporting the chosen version is still wanted.
-        source = LsstVersionSource(GITDIR, {})
-        with self.assertLogs("lsst_versions", level=logging.DEBUG) as cm:
-            source.get_version_data()
-        self.assertNotIn("DEBUG", [record.levelname for record in cm.records])
-        self.assertIn("INFO", [record.levelname for record in cm.records])
+def levels(caplog: pytest.LogCaptureFixture) -> set[str]:
+    """Return the levels this package logged at, ignoring other loggers."""
+    return {record.levelname for record in caplog.records if record.name == "lsst_versions"}
 
 
-class BuildBackendTestCase(unittest.TestCase):
-    """Test the version file handling used by the in-tree build backend."""
+@requires_hatchling
+def test_hatch_register() -> None:
+    """The plugin hook returns the version source class."""
+    from lsst_versions.hatch import LsstVersionSource, hatch_register_version_source
 
-    def setUp(self):
-        self.tmpdir = self.enterContext(tempfile.TemporaryDirectory())
-
-    def test_read_missing(self):
-        self.assertIsNone(_read_written_version(self.tmpdir))
-
-    def test_read_empty(self):
-        _version_path(self.tmpdir).write_text("\n")
-        self.assertIsNone(_read_written_version(self.tmpdir))
-
-    def test_read_version(self):
-        _version_path(self.tmpdir).write_text("1.2.3\n")
-        self.assertEqual(_read_written_version(self.tmpdir), "1.2.3")
-
-    def test_write_from_git(self):
-        # The version file is written into the root of the tree being
-        # versioned, so the test repository gains one for the duration.
-        _write_version_file(GITDIR)
-        self.addCleanup(_version_path(GITDIR).unlink)
-        self.assertEqual(_read_written_version(GITDIR), find_lsst_version(GITDIR))
-
-    def test_write_reuses_existing(self):
-        # No Git repository and no package metadata, so the version already
-        # in the file must be retained. This is the source distribution case.
-        _version_path(self.tmpdir).write_text("9.9.9\n")
-        _write_version_file(self.tmpdir)
-        self.assertEqual(_read_written_version(self.tmpdir), "9.9.9")
-
-    def test_write_falls_back_to_default(self):
-        # Nothing to go on at all.
-        with self.assertWarns(UserWarning):
-            _write_version_file(self.tmpdir)
-        self.assertEqual(_read_written_version(self.tmpdir), _DEFAULT_VERSION)
+    assert hatch_register_version_source() is LsstVersionSource
+    assert LsstVersionSource.PLUGIN_NAME == "lsst"
 
 
-class SetuptoolsHookTestCase(unittest.TestCase):
-    """Test the setuptools entry point."""
+@requires_hatchling
+def test_hatch_get_version_data(gitdir: Path) -> None:
+    """The plugin uses the project root supplied by Hatch."""
+    from lsst_versions.hatch import LsstVersionSource
 
-    @staticmethod
-    def fake_distribution() -> SimpleNamespace:
-        """Stand in for the setuptools distribution being built."""
-        return SimpleNamespace(metadata=SimpleNamespace(version=None))
-
-    def setUp(self):
-        self.enterContext(unittest.mock.patch.dict(os.environ))
-        os.environ.pop(_LOG_LEVEL_ENV, None)
-        cwd = os.getcwd()
-        os.chdir(GITDIR)
-        self.addCleanup(os.chdir, cwd)
-        self.addCleanup(os.unlink, os.path.join(GITDIR, "version_test.py"))
-
-    def test_logging_is_quiet(self):
-        # A debug message for every tag would otherwise be emitted into the
-        # output of the build that triggered this.
-        dist = self.fake_distribution()
-        with self.assertLogs("lsst_versions", level=logging.DEBUG) as cm:
-            infer_version_for_setuptools(dist)
-        self.assertNotIn("DEBUG", [record.levelname for record in cm.records])
-        self.assertEqual(dist.metadata.version, find_lsst_version(GITDIR))
-
-    def test_logging_can_be_restored(self):
-        os.environ[_LOG_LEVEL_ENV] = "DEBUG"
-        with self.assertLogs("lsst_versions", level=logging.DEBUG):
-            infer_version_for_setuptools(self.fake_distribution())
+    # The plugin must use the project root given to it by Hatch rather
+    # than the current working directory.
+    source = LsstVersionSource(gitdir, {})
+    assert source.get_version_data() == {"version": find_lsst_version(gitdir)}
 
 
-class BuildHookTestCase(unittest.TestCase):
-    """Test the PEP 517 hooks implemented by the in-tree build backend."""
+@requires_hatchling
+def test_hatch_logging_is_quiet(gitdir: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """Per-tag debug messages stay out of the build output."""
+    from lsst_versions.hatch import LsstVersionSource
 
-    # Hook, the setuptools function it must delegate to, and the arguments
-    # that must be forwarded unchanged.
-    HOOKS = (
+    # The per-tag debug messages must not reach the build output but
+    # the message reporting the chosen version is still wanted.
+    source = LsstVersionSource(gitdir, {})
+    with caplog.at_level(logging.DEBUG, logger="lsst_versions"):
+        source.get_version_data()
+    assert "DEBUG" not in levels(caplog)
+    assert "INFO" in levels(caplog)
+
+
+def test_read_missing(tmp_path: Path) -> None:
+    """No version file at all reads as no version."""
+    assert _read_written_version(tmp_path) is None
+
+
+def test_read_empty(tmp_path: Path) -> None:
+    """An empty version file reads as no version."""
+    _version_path(tmp_path).write_text("\n")
+    assert _read_written_version(tmp_path) is None
+
+
+def test_read_version(tmp_path: Path) -> None:
+    """A written version is read back without its trailing newline."""
+    _version_path(tmp_path).write_text("1.2.3\n")
+    assert _read_written_version(tmp_path) == "1.2.3"
+
+
+def test_write_from_git(gitdir: Path) -> None:
+    """The version written for a repository is the one Git implies."""
+    # The version file is written into the root of the tree being
+    # versioned, so the test repository gains one for the duration.
+    _write_version_file(gitdir)
+    try:
+        assert _read_written_version(gitdir) == find_lsst_version(gitdir)
+    finally:
+        _version_path(gitdir).unlink()
+
+
+def test_write_reuses_existing(tmp_path: Path) -> None:
+    """An existing version file is retained when nothing else is available."""
+    # No Git repository and no package metadata, so the version already
+    # in the file must be retained. This is the source distribution case.
+    _version_path(tmp_path).write_text("9.9.9\n")
+    _write_version_file(tmp_path)
+    assert _read_written_version(tmp_path) == "9.9.9"
+
+
+def test_write_falls_back_to_default(tmp_path: Path) -> None:
+    """With nothing to go on at all the default version is written."""
+    with pytest.warns(UserWarning):
+        _write_version_file(tmp_path)
+    assert _read_written_version(tmp_path) == _DEFAULT_VERSION
+
+
+def fake_distribution() -> SimpleNamespace:
+    """Stand in for the setuptools distribution being built."""
+    return SimpleNamespace(metadata=SimpleNamespace(version=None))
+
+
+@pytest.fixture
+def in_test_repository(gitdir: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
+    """Run inside the test repository with no log level override set."""
+    monkeypatch.delenv(_LOG_LEVEL_ENV, raising=False)
+    monkeypatch.chdir(gitdir)
+    yield gitdir
+    (gitdir / "version_test.py").unlink(missing_ok=True)
+
+
+def test_setuptools_logging_is_quiet(in_test_repository: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """The setuptools hook does not log a message for every tag."""
+    # A debug message for every tag would otherwise be emitted into the
+    # output of the build that triggered this.
+    dist = fake_distribution()
+    with caplog.at_level(logging.DEBUG, logger="lsst_versions"):
+        infer_version_for_setuptools(dist)
+    assert "DEBUG" not in levels(caplog)
+    assert dist.metadata.version == find_lsst_version(in_test_repository)
+
+
+def test_setuptools_logging_can_be_restored(
+    in_test_repository: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The environment variable restores the suppressed debug messages."""
+    monkeypatch.setenv(_LOG_LEVEL_ENV, "DEBUG")
+    with caplog.at_level(logging.DEBUG, logger="lsst_versions"):
+        infer_version_for_setuptools(fake_distribution())
+    assert "DEBUG" in levels(caplog)
+
+
+@pytest.mark.parametrize(
+    ("hook", "delegate", "args"),
+    (
         ("build_wheel", "_build_wheel", ("wheeldir", {"setting": "value"}, "metadir")),
         ("build_sdist", "_build_sdist", ("sdistdir", {"setting": "value"})),
         ("build_editable", "_build_editable", ("wheeldir", {"setting": "value"}, "metadir")),
@@ -155,21 +172,16 @@ class BuildHookTestCase(unittest.TestCase):
             "_prepare_metadata_for_build_editable",
             ("metadir", {"setting": "value"}),
         ),
-    )
+    ),
+)
+def test_hooks_write_version_and_delegate(hook: str, delegate: str, args: tuple) -> None:
+    """Every PEP 517 hook writes the version and forwards its arguments."""
+    with (
+        patch.object(_build_backend, "_write_version_file") as write_version,
+        patch.object(_build_backend, delegate, return_value="result") as delegated,
+    ):
+        result = getattr(_build_backend, hook)(*args)
 
-    def test_hooks_write_version_and_delegate(self):
-        for hook, delegate, args in self.HOOKS:
-            with self.subTest(hook=hook):
-                with (
-                    patch.object(_build_backend, "_write_version_file") as write_version,
-                    patch.object(_build_backend, delegate, return_value="result") as delegated,
-                ):
-                    result = getattr(_build_backend, hook)(*args)
-
-                self.assertEqual(result, "result")
-                write_version.assert_called_once_with()
-                delegated.assert_called_once_with(*args)
-
-
-if __name__ == "__main__":
-    unittest.main()
+    assert result == "result"
+    write_version.assert_called_once_with()
+    delegated.assert_called_once_with(*args)

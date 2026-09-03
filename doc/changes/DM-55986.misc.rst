@@ -6,3 +6,4 @@ Library versions for development and CI are now managed with ``uv`` and recorded
 The Hatch version source plugin and the in-tree build backend are now covered by tests.
 Third-party GitHub Actions are pinned by commit SHA and kept up to date by Dependabot.
 The minimum supported ``setuptools`` version is now 77, matching the build requirements.
+The tests are now written with ``pytest`` rather than ``unittest``.
