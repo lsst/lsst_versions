@@ -19,11 +19,8 @@ import unittest.mock
 from types import SimpleNamespace
 from unittest.mock import patch
 
-try:
-    import git
-except ImportError:
-    git = None
-
+# Hatchling is only in the dev dependency group, so tests run from a plain
+# environment can still exercise everything else.
 try:
     import hatchling  # noqa: F401
 except ImportError:
@@ -40,7 +37,6 @@ from lsst_versions._versions import _LOG_LEVEL_ENV
 from test_versions import GITDIR, setup_module  # noqa: F401
 
 
-@unittest.skipIf(git is None, "GitPython package is not installed.")
 @unittest.skipIf(hatchling is None, "hatchling package is not installed.")
 class HatchVersionSourceTestCase(unittest.TestCase):
     """Test the Hatch version source plugin."""
@@ -71,7 +67,6 @@ class HatchVersionSourceTestCase(unittest.TestCase):
         self.assertIn("INFO", [record.levelname for record in cm.records])
 
 
-@unittest.skipIf(git is None, "GitPython package is not installed.")
 class BuildBackendTestCase(unittest.TestCase):
     """Test the version file handling used by the in-tree build backend."""
 
@@ -113,7 +108,6 @@ class BuildBackendTestCase(unittest.TestCase):
         self.assertEqual(_read_written_version(self.tmpdir), _DEFAULT_VERSION)
 
 
-@unittest.skipIf(git is None, "GitPython package is not installed.")
 class SetuptoolsHookTestCase(unittest.TestCase):
     """Test the setuptools entry point."""
 
@@ -145,7 +139,6 @@ class SetuptoolsHookTestCase(unittest.TestCase):
             infer_version_for_setuptools(self.fake_distribution())
 
 
-@unittest.skipIf(git is None, "GitPython package is not installed.")
 class BuildHookTestCase(unittest.TestCase):
     """Test the PEP 517 hooks implemented by the in-tree build backend."""
 

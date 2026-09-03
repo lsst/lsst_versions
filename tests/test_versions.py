@@ -14,11 +14,7 @@ import sys
 import tarfile
 import unittest
 
-try:
-    import git
-except ImportError:
-    git = None
-
+import git
 from lsst_versions import find_lsst_version, get_lsst_version
 
 # Also need an internal function to test the lsst-versions command.
@@ -53,7 +49,6 @@ def setup_module(module):
         os.symlink(os.path.join(TESTDIR, "test_pyproject.toml"), target)
 
 
-@unittest.skipIf(git is None, "GitPython package is not installed.")
 class VersionsTestCase(unittest.TestCase):
     """Test Git version finding."""
 

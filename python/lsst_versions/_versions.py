@@ -24,12 +24,8 @@ import warnings
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
+import git
 from packaging.version import InvalidVersion, Version
-
-try:
-    import git
-except ImportError:
-    git = None  # type: ignore
 
 if TYPE_CHECKING:
     import setuptools
@@ -109,9 +105,6 @@ def find_lsst_version(repo_dir: str = ".", version_commit: str = "HEAD") -> str:
     If a commit matches that of a formal release tag (either proper release
     or release candidate) that version is used directly.
     """
-    if git is None:
-        raise RuntimeError("GitPython package not installed. Unable to determine version.")
-
     repo = git.Repo(repo_dir)
 
     releases: dict[str, Version] = {}
