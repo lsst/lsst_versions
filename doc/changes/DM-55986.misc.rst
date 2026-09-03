@@ -5,3 +5,4 @@ This replaces the ``setup.py`` bootstrap that was needed because the ``setuptool
 Library versions for development and CI are now managed with ``uv`` and recorded in ``uv.lock``, and the GitHub Actions workflows use ``uv run`` against that locked environment.
 The Hatch version source plugin and the in-tree build backend are now covered by tests.
 Third-party GitHub Actions are pinned by commit SHA and kept up to date by Dependabot.
+The minimum supported ``setuptools`` version is now 77, matching the build requirements.

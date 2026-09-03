@@ -1098,7 +1098,7 @@ wheels = [
 
 [[package]]
 name = "lsst-sphinxutils"
-version = "30.2026.3400"
+version = "30.2026.3600"
 source = { git = "https://github.com/lsst/sphinxutils?rev=main#f19a2bea7c531165255f81dd52122788e48a30c7" }
 dependencies = [
     { name = "documenteer", extra = ["guide"] },
@@ -1132,15 +1132,15 @@ doc = [
 requires-dist = [
     { name = "gitpython", specifier = ">=3.1" },
     { name = "packaging" },
-    { name = "setuptools", specifier = ">=46.0" },
+    { name = "setuptools", specifier = ">=77.0" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "hatchling", specifier = ">=1.27.0" },
     { name = "mypy", specifier = ">=1.14" },
-    { name = "pytest", specifier = ">=3.2" },
-    { name = "pytest-cov", specifier = ">=5.0" },
+    { name = "pytest", specifier = ">=9.0" },
+    { name = "pytest-cov", specifier = ">=7.0" },
     { name = "types-setuptools", specifier = ">=75" },
 ]
 doc = [
