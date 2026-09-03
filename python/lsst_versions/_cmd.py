@@ -86,4 +86,4 @@ def main() -> None:
     logging.basicConfig(level=args.log_level)
 
     version = _run_command(args.repo, args.write_version)
-    print(version)
+    print(version)  # noqa: T201

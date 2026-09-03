@@ -32,6 +32,7 @@ __all__ = [
     "prepare_metadata_for_build_wheel",
 ]
 
+import logging
 import os
 import warnings
 from pathlib import Path
@@ -48,6 +49,8 @@ from setuptools.build_meta import (
     prepare_metadata_for_build_editable as _prepare_metadata_for_build_editable,
 )
 from setuptools.build_meta import prepare_metadata_for_build_wheel as _prepare_metadata_for_build_wheel
+
+_LOG = logging.getLogger("lsst_versions")
 
 # The root of this package's source tree, two levels above this file.
 _ROOT = Path(__file__).absolute().parent.parent.parent
@@ -114,7 +117,9 @@ def _write_version_file(root: str | os.PathLike[str] = _ROOT) -> None:
     except Exception as e:
         # Git exceptions sometimes have no error message.
         msg = str(e) or repr(e)
-        print(f"Failed to determine package version from Git: {msg}")
+        # Nothing configures logging in a build subprocess, so this reaches
+        # stderr through the last resort handler.
+        _LOG.warning("Failed to determine package version from Git: %s", msg)
 
         written_version = _read_written_version(root)
         if written_version is None:

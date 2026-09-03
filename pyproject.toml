@@ -177,6 +177,7 @@ select = [
     "D",  # pydocstyle
     "I",  # isort
     "UP",  # Modernize
+    "T20",  # flake8-print
 ]
 
 [tool.ruff.lint.isort]
