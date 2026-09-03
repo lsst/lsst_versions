@@ -68,9 +68,9 @@ def _run_command(repo: str | os.PathLike[str], write_version: bool) -> str:
     Returns
     -------
     version : `str`
-        The version string.
+        The version string, or ``0+unknown`` if no version could be found.
     """
-    version, written = _process_version_writing(repo, write_version)
+    version, written = _process_version_writing(repo, write_version, fallback=True)
     if write_version:
         if written:
             _LOG.info("Written version file to %s", written)

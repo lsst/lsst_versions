@@ -32,32 +32,22 @@ __all__ = [
     "prepare_metadata_for_build_wheel",
 ]
 
-import logging
 import os
-import warnings
 from pathlib import Path
 
 from setuptools.build_meta import build_editable as _build_editable
 from setuptools.build_meta import build_sdist as _build_sdist
 from setuptools.build_meta import build_wheel as _build_wheel
-from setuptools.build_meta import (
-    get_requires_for_build_editable,  # noqa: F401
-    get_requires_for_build_sdist,  # noqa: F401
-    get_requires_for_build_wheel,  # noqa: F401
-)
+from setuptools.build_meta import get_requires_for_build_editable as _get_requires_for_build_editable
+from setuptools.build_meta import get_requires_for_build_sdist as _get_requires_for_build_sdist
+from setuptools.build_meta import get_requires_for_build_wheel as _get_requires_for_build_wheel
 from setuptools.build_meta import (
     prepare_metadata_for_build_editable as _prepare_metadata_for_build_editable,
 )
 from setuptools.build_meta import prepare_metadata_for_build_wheel as _prepare_metadata_for_build_wheel
 
-_LOG = logging.getLogger("lsst_versions")
-
 # The root of this package's source tree, two levels above this file.
 _ROOT = Path(__file__).absolute().parent.parent.parent
-
-# Used when no version can be determined from Git or from a previously
-# written version file.
-_DEFAULT_VERSION = "0.0.1"
 
 _ConfigSettings = dict[str, str | list[str]] | None
 
@@ -108,26 +98,37 @@ def _write_version_file(root: str | os.PathLike[str] = _ROOT) -> None:
     root : `str` or `os.PathLike`, optional
         Root of the source tree.
     """
-    from ._versions import get_lsst_version
+    from ._versions import _UNKNOWN_VERSION, get_lsst_version
 
-    try:
-        # Falling back to package metadata allows a source distribution that
-        # is no longer part of a Git repository to be built.
-        version = get_lsst_version(root, fallback=True)
-    except Exception as e:
-        # Git exceptions sometimes have no error message.
-        msg = str(e) or repr(e)
-        # Nothing configures logging in a build subprocess, so this reaches
-        # stderr through the last resort handler.
-        _LOG.warning("Failed to determine package version from Git: %s", msg)
+    # Falling back to package metadata allows a source distribution that is
+    # no longer part of a Git repository to be built.
+    version = get_lsst_version(root, fallback=True)
 
-        written_version = _read_written_version(root)
-        if written_version is None:
-            warnings.warn("Unable to determine package version. Falling back to default value.", stacklevel=2)
-            written_version = _DEFAULT_VERSION
-        version = written_version
+    if version == _UNKNOWN_VERSION:
+        # A version written by an earlier build is more useful than none,
+        # and is how a source distribution built without metadata keeps the
+        # version it was created with.
+        version = _read_written_version(root) or _UNKNOWN_VERSION
 
     _version_path(root).write_text(version + "\n")
+
+
+def get_requires_for_build_wheel(config_settings: _ConfigSettings = None) -> list[str]:
+    """Return the wheel build requirements, writing the version file first."""
+    _write_version_file()
+    return _get_requires_for_build_wheel(config_settings)
+
+
+def get_requires_for_build_sdist(config_settings: _ConfigSettings = None) -> list[str]:
+    """Return the sdist build requirements, writing the version file first."""
+    _write_version_file()
+    return _get_requires_for_build_sdist(config_settings)
+
+
+def get_requires_for_build_editable(config_settings: _ConfigSettings = None) -> list[str]:
+    """Return the editable requirements, writing the version file first."""
+    _write_version_file()
+    return _get_requires_for_build_editable(config_settings)
 
 
 def build_wheel(
