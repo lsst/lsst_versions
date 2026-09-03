@@ -1,19 +1,117 @@
 [project]
 name = "lsst-versions"
-requires-python = ">= 3.8"
-dynamic = [
-    "version", "classifiers", "description", "entry-points", "scripts",
-    "dependencies", "optional-dependencies", "urls", "authors", "readme", "keywords"
+description = "Calculate package versions following LSST code conventions."
+license = "BSD-3-Clause"
+license-files = ["LICENSE", "COPYRIGHT"]
+requires-python = ">=3.11"
+authors = [
+    {name = "Rubin Observatory Data Management", email = "dm-admin@lists.lsst.org"},
 ]
+keywords = ["lsst"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Version Control",
+    "Topic :: System :: Software Distribution",
+]
+dependencies = [
+    "setuptools >= 77.0",
+    "GitPython >= 3.1",
+    "packaging",
+]
+dynamic = ["version", "readme"]
+
+[project.urls]
+"Homepage" = "https://github.com/lsst/lsst_versions"
+"Source" = "https://github.com/lsst/lsst_versions"
+"Issue tracker" = "https://github.com/lsst/lsst_versions/issues"
+
+[project.scripts]
+lsst-version = "lsst_versions._cmd:main"
+
+[project.entry-points."setuptools.finalize_distribution_options"]
+lsst_versions = "lsst_versions:infer_version_for_setuptools"
+
+[project.entry-points.hatch]
+lsst = "lsst_versions.hatch"
+
+[dependency-groups]
+dev = [
+    "pytest >= 9.0",
+    "pytest-cov >= 7.0",
+    # Needed to exercise the Hatch version source plugin.
+    "hatchling >= 1.27.0",
+    "mypy >= 1.14",
+    "types-setuptools >= 75",
+]
+doc = [
+    "documenteer[guide] >= 2.4.0, < 3.0",
+    "sphinxcontrib-autoprogram",
+    "lsst-sphinxutils @ git+https://github.com/lsst/sphinxutils@main",
+]
+
+[tool.uv.dependency-groups]
+# Documenteer requires Python 3.12 or later but this package supports 3.11.
+doc = {requires-python = ">=3.12"}
 
 [build-system]
 requires = [
-    "setuptools",
-    "tomli>1.0",
+    "setuptools >= 77.0",
     "GitPython",
     "packaging",
 ]
-build-backend = "setuptools.build_meta"
+# This package can not use its own setuptools entry point to version itself
+# because that entry point is only registered once the package is installed.
+# The in-tree backend writes the version file before delegating to setuptools.
+backend-path = ["python"]
+build-backend = "lsst_versions._build_backend"
+
+[tool.setuptools]
+zip-safe = false
+
+[tool.setuptools.dynamic]
+# Written by the in-tree build backend before setuptools reads it.
+version = {file = "VERSION"}
+readme = {file = ["README.rst", "doc/lsst_versions/CHANGES.rst"], content-type = "text/x-rst"}
+
+[tool.setuptools.packages.find]
+where = ["python"]
+
+[tool.setuptools.package-data]
+lsst_versions = ["py.typed"]
+
+[tool.pydocstyle]
+convention = "numpy"
+add-ignore = "D100, D102, D105, D107, D200, D205, D400"
+
+# An empty section is required to stop pytest searching parent directories
+# for a configuration file that may not be compatible with this package.
+[tool.pytest.ini_options]
+
+[tool.mypy]
+files = ["python"]
+warn_unused_configs = true
+warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+module = "git.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "lsst_versions.*"
+ignore_missing_imports = false
+ignore_errors = false
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+strict_equality = true
+warn_unreachable = true
+warn_unused_ignores = true
 
 [tool.towncrier]
     package = "lsst_versions"
@@ -53,14 +151,6 @@ build-backend = "setuptools.build_meta"
         name = "An API Removal or Deprecation"
         showcontent = true
 
-[tool.black]
-line-length = 110
-target-version = ["py38"]
-
-[tool.isort]
-profile = "black"
-line_length = 110
-
 [tool.ruff]
 target-version = "py311"
 line-length = 110
@@ -86,6 +176,8 @@ select = [
     "W",  # pycodestyle
     "D",  # pydocstyle
     "I",  # isort
+    "UP",  # Modernize
+    "T20",  # flake8-print
 ]
 
 [tool.ruff.lint.isort]
