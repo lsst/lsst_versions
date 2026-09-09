@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 
 from ._versions import _process_version_writing
 
@@ -54,12 +55,12 @@ def build_argparser() -> argparse.ArgumentParser:
     return parser
 
 
-def _run_command(repo: str, write_version: bool) -> str:
+def _run_command(repo: str | os.PathLike[str], write_version: bool) -> str:
     """Run the main command implementation code.
 
     Parameters
     ----------
-    repo : `str`
+    repo : `str` or `os.PathLike`
         Path to a git repository.
     write_version : `bool`
         Whether to write a version file or not.
@@ -85,4 +86,4 @@ def main() -> None:
     logging.basicConfig(level=args.log_level)
 
     version = _run_command(args.repo, args.write_version)
-    print(version)
+    print(version)  # noqa: T201

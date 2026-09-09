@@ -44,6 +44,20 @@ In the project's ``pyproject.toml``, update the build system specification:
     [tool.hatch.version]
     source = "lsst"
 
+Debugging
+=========
+
+The version calculation issues a debug message for every tag in the repository.
+These messages are suppressed while another package is being built so that they do not obscure the output of build tools that enable debug logging, such as ``uv pip install -v``.
+The informational message reporting the chosen version is still issued.
+Set the ``LSST_VERSIONS_LOG_LEVEL`` environment variable to see the debug messages:
+
+.. code-block:: bash
+
+    LSST_VERSIONS_LOG_LEVEL=DEBUG pip install .
+
+The ``lsst-version`` command is unaffected and takes a ``--log-level`` option instead.
+
 GitHub Actions
 ==============
 

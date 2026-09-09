@@ -20,7 +20,13 @@ It avoids the need to hard-code and continually update a version string.
 It assumes the use of LSST DM release and tagging practices.
 """
 
-from .__version__ import *
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("lsst-versions")
+except PackageNotFoundError:
+    # Package is not installed.
+    __version__ = "0.0.0"
 
 # Importing __all__ ensures that the docstrings for the public APis
 # in _versions.py are lifted into the main namespace.

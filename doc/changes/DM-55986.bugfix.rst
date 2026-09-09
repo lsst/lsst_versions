@@ -1,0 +1,12 @@
+The Hatch version source plugin now calculates the version from the project root supplied by Hatch rather than from the current working directory.
+Previously a Hatch build started from a different directory could report the wrong version.
+
+The build system plugins no longer emit their own debug logging into the output of the package being built.
+A debug message was previously issued for every tag in the repository, which buried the output of tools that enable debug logging during a build, such as ``uv pip install -v``.
+The informational message reporting the chosen version is retained.
+Set the ``LSST_VERSIONS_LOG_LEVEL`` environment variable to restore the debug messages.
+
+Repositories that do not use the LSST ``w.YYYY.WW`` weekly tagging convention are now versioned by semantic versioning.
+The version is calculated with the ``guess-next-dev`` scheme used by ``setuptools_scm``: the release expected to follow the most recent release tag reachable from the commit, with a PEP 440 development segment counting the commits made since that tag.
+A tree built 22 commits after the ``1.6.0`` tag is therefore ``1.6.1.dev22``, which sorts above ``1.6.0`` and below ``1.6.1``.
+Previously such a repository combined the major version of its newest release with a commit count measured from the root of the repository, reporting ``1.0.28`` for that tree.

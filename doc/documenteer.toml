@@ -1,0 +1,14 @@
+[project]
+title = "lsst-versions"
+
+[project.python]
+package = "lsst_versions"
+
+[build]
+clean = true
+
+[sphinx]
+# Provides the autoprogram directive used to document the command-line
+# interface. Documenteer 1 enabled this via its stack configuration but
+# Documenteer 2 does not.
+extensions = ["sphinxcontrib.autoprogram"]
