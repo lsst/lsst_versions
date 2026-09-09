@@ -16,7 +16,7 @@ API Changes
   ``GitPython`` is now an unconditional requirement of this package rather than an optional import.
   The ``RuntimeError`` that was raised when it was missing has been removed.
 
-  The public functions now accept any :py:class:`os.PathLike` for the directory or repository they are given, rather than only a `str`. (`DM-55986 <https://jira.lsstcorp.org/browse/DM-55986>`_)
+  The public functions now accept any ``os.PathLike`` for the directory or repository they are given, rather than only a `str`. (`DM-55986 <https://jira.lsstcorp.org/browse/DM-55986>`_)
 
 
 Bug Fixes
@@ -70,9 +70,9 @@ Miscellaneous Changes of Minor Interest
 
 - Refreshes development and build environment specifications.
 
-- Removes retired `pytest-openfiles` testing dependency.
+- Removes retired ``pytest-openfiles`` testing dependency.
 
-- Uses secure `tarfile` data filter when supported by Python.
+- Uses secure ``tarfile`` data filter when supported by Python.
 
 lsst-versions 1.5.0 2023-11-29
 ==============================

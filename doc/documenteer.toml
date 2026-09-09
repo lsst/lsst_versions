@@ -2,7 +2,7 @@
 title = "lsst-versions"
 
 [project.python]
-package = "lsst_versions"
+package = "lsst-versions"
 
 [build]
 clean = true
@@ -12,3 +12,10 @@ clean = true
 # interface. Documenteer 1 enabled this via its stack configuration but
 # Documenteer 2 does not.
 extensions = ["sphinxcontrib.autoprogram"]
+
+nitpick_ignore = [
+    ["py:obj", "setuptools.Distribution"]
+]
+
+[sphinx.intersphinx.projects]
+python = "https://docs.python.org/3"
