@@ -1,3 +1,60 @@
+lsst_versions 1.7.0 2026-09-09
+==============================
+
+New Features
+------------
+
+- The version calculation can now be run with ``python -m lsst_versions`` as well as through the ``lsst-version`` command. (`DM-55986 <https://jira.lsstcorp.org/browse/DM-55986>`_)
+
+
+API Changes
+-----------
+
+- ``lsst_versions.__version__`` is now read from the installed package metadata using ``importlib.metadata`` rather than from a generated ``__version__.py`` file.
+  It reports ``0.0.0`` if the package has not been installed.
+
+  ``GitPython`` is now an unconditional requirement of this package rather than an optional import.
+  The ``RuntimeError`` that was raised when it was missing has been removed.
+
+  The public functions now accept any :py:class:`os.PathLike` for the directory or repository they are given, rather than only a `str`. (`DM-55986 <https://jira.lsstcorp.org/browse/DM-55986>`_)
+
+
+Bug Fixes
+---------
+
+- A version of ``0+unknown`` is now reported when no version can be determined from Git or from package metadata, instead of raising an error.
+  This allows a package to be built from a checkout with no Git history, such as a shallow clone. (`DM-55985 <https://jira.lsstcorp.org/browse/DM-55985>`_)
+- The Hatch version source plugin now calculates the version from the project root supplied by Hatch rather than from the current working directory.
+  Previously a Hatch build started from a different directory could report the wrong version.
+
+  The build system plugins no longer emit their own debug logging into the output of the package being built.
+  A debug message was previously issued for every tag in the repository, which buried the output of tools that enable debug logging during a build, such as ``uv pip install -v``.
+  The informational message reporting the chosen version is retained.
+  Set the ``LSST_VERSIONS_LOG_LEVEL`` environment variable to restore the debug messages.
+
+  Repositories that do not use the LSST ``w.YYYY.WW`` weekly tagging convention are now versioned by semantic versioning.
+  A tree built 22 commits after the ``1.6.0`` tag is therefore ``1.6.1.dev22``, which sorts above ``1.6.0`` and below ``1.6.1``.
+  Previously such a repository combined the major version of its newest release with a commit count measured from the root of the repository, reporting ``1.0.28`` for that tree. (`DM-55986 <https://jira.lsstcorp.org/browse/DM-55986>`_)
+
+
+Miscellaneous Changes of Minor Interest
+---------------------------------------
+
+- All build configuration has been consolidated into ``pyproject.toml``.
+  The package is now built with an in-tree PEP 517 build backend.
+  Library versions for development and CI are now managed with ``uv`` and recorded in ``uv.lock``.
+  The minimum supported ``setuptools`` version is now 77, matching the build requirements.
+  (`DM-55986 <https://jira.lsstcorp.org/browse/DM-55986>`_)
+
+
+An API Removal or Deprecation
+-----------------------------
+
+- The minimum supported Python version is now 3.11.
+  This allows the standard library ``tomllib`` module to be used and the ``tomli`` dependency has been dropped.
+  The ``dev`` and ``typing`` extras have been replaced by the ``dev`` dependency group, and ``doc/requirements.txt`` by the ``doc`` dependency group. (`DM-55986 <https://jira.lsstcorp.org/browse/DM-55986>`_)
+
+
 lsst-versions 1.6.0 2025-01-21
 ==============================
 

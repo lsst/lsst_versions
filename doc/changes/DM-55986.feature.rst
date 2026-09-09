@@ -1,1 +1,0 @@
-The version calculation can now be run with ``python -m lsst_versions`` as well as through the ``lsst-version`` command.
