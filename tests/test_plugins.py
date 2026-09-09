@@ -27,13 +27,8 @@ except ImportError:
     hatchling = None
 
 from lsst_versions import _build_backend, find_lsst_version, infer_version_for_setuptools
-from lsst_versions._build_backend import (
-    _DEFAULT_VERSION,
-    _read_written_version,
-    _version_path,
-    _write_version_file,
-)
-from lsst_versions._versions import _LOG_LEVEL_ENV
+from lsst_versions._build_backend import _read_written_version, _version_path, _write_version_file
+from lsst_versions._versions import _LOG_LEVEL_ENV, _UNKNOWN_VERSION
 
 requires_hatchling = pytest.mark.skipif(hatchling is None, reason="hatchling package is not installed.")
 
@@ -114,11 +109,12 @@ def test_write_reuses_existing(tmp_path: Path) -> None:
     assert _read_written_version(tmp_path) == "9.9.9"
 
 
-def test_write_falls_back_to_default(tmp_path: Path) -> None:
-    """With nothing to go on at all the default version is written."""
-    with pytest.warns(UserWarning):
+def test_write_falls_back_to_unknown(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """With nothing to go on at all the unknown placeholder is written."""
+    with caplog.at_level(logging.WARNING, logger="lsst_versions"):
         _write_version_file(tmp_path)
-    assert _read_written_version(tmp_path) == _DEFAULT_VERSION
+    assert "WARNING" in levels(caplog)
+    assert _read_written_version(tmp_path) == _UNKNOWN_VERSION
 
 
 def fake_distribution() -> SimpleNamespace:
@@ -172,6 +168,9 @@ def test_setuptools_logging_can_be_restored(
             "_prepare_metadata_for_build_editable",
             ("metadir", {"setting": "value"}),
         ),
+        ("get_requires_for_build_wheel", "_get_requires_for_build_wheel", ({"setting": "value"},)),
+        ("get_requires_for_build_sdist", "_get_requires_for_build_sdist", ({"setting": "value"},)),
+        ("get_requires_for_build_editable", "_get_requires_for_build_editable", ({"setting": "value"},)),
     ),
 )
 def test_hooks_write_version_and_delegate(hook: str, delegate: str, args: tuple) -> None:

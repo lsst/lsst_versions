@@ -44,6 +44,19 @@ In the project's ``pyproject.toml``, update the build system specification:
     [tool.hatch.version]
     source = "lsst"
 
+Checkouts with no Git history
+=============================
+
+Determining a version requires the Git history of the package.
+Some tools, such as Dependabot, work from a checkout that does not have one.
+Rather than failing the build, a version of ``0+unknown`` is reported when no version can be found from Git or from package metadata.
+
+``0+unknown`` is a PEP 440 local version.
+It can be parsed by packaging tools and sorts below every real release, but public index servers such as PyPI refuse to accept local versions, so a package built this way can never be released by accident.
+A dependency such as ``lsst-daf-butler>=28`` will not be satisfied by it either, so the placeholder cannot pass silently.
+
+The ``lsst-version`` command reports the same string.
+
 Debugging
 =========
 

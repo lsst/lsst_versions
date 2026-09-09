@@ -1,0 +1,4 @@
+A version of ``0+unknown`` is now reported when no version can be determined from Git or from package metadata, instead of raising an error.
+This allows a package to be built from a checkout with no Git history, such as the shallow clone used by Dependabot.
+``0+unknown`` is a PEP 440 local version, so it can be parsed by packaging tools and sorts below every real release, but public index servers such as PyPI refuse to accept it and it can therefore never be released by accident.
+The ``lsst-version`` command reports the same string so that scripts calling it, including those in packages that are not written in Python, see the same behavior as a Python build.
